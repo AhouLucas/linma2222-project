@@ -6,18 +6,14 @@
 # %% [markdown]
 # ### Imports
 
-# %%
 import numpy as np
 import matplotlib.pyplot as plt
 
 import os
 os.makedirs("figures", exist_ok=True)
 
-## make plt do not stop the code execution
-# plt.ion()
-## desactive les plots pour tout le code
+## desactive les plots pour tout le code ( sauvegarde juste le fichier svg )
 plt.show = lambda: plt.close('all')
-
 
 
 
@@ -450,12 +446,6 @@ best_params_cma = np.array([-0.0529, 37.2788, 29.9648])
 best_policy_cma = get_linear_policy(best_params_cma)
 policy_list.append((best_policy_cma, "Best linear Policy (CMA-ES)"))
 
-#[-5.74556410e-03  6.56822157e+00  4.38571108e+00]
-# [-2.99189194e-02  3.84492141e+01  3.32209636e+01]
-# [-2.97940484e-02  3.14696412e+01  3.27599599e+01] 0.0007577999130319491
-# Best reward (CMA-ES): 
-# Best params (CMA-ES): 
-
 # Best reward (CMA-ES): 0.0007081507843159959
 # Best params (CMA-ES): [-0.03271245 18.91242714 -4.30407586]
 
@@ -532,8 +522,6 @@ plt.savefig("figures/policy_comparison_cumulative_distribution.svg", format='svg
 plt.show()
 
 # %%
-
-
 
 
 x, u, xi_p = generate_trajectories(best_policy_cma_quadratic, x0=(0, 0, 0), T=1000)
