@@ -13,7 +13,7 @@ import os
 os.makedirs("figures", exist_ok=True)
 
 ## desactive les plots pour tout le code ( sauvegarde juste le fichier svg )
-plt.show = lambda: plt.close('all')
+# plt.show = lambda: plt.close('all')
 
 
 
@@ -66,7 +66,7 @@ def g(q, za, zu , u, xi_p=None):
         xi_p = rng.normal(0, 1, size=q.shape[0])
 
     # Formula found by replacing p_t+1 and p_t by their expressions in the given model (see Question 2.3)
-    return q * (za + zu + (GAMMA_U * u) + (SIGMA_P * xi_p)) + THETA * u * (za + zu + (SIGMA_P * xi_p))
+    return 1000 * q * (za + zu + (GAMMA_U * u) + (SIGMA_P * xi_p)) + THETA * u * (za + zu + (SIGMA_P * xi_p))
 
 
 def c(g):
@@ -171,7 +171,7 @@ def plot_trajectories(x, u, xi_p, filename=None, mean=False, variance=False, pol
     plt.tight_layout()
     if filename:
         plt.savefig("figures/" + filename + "_states_actions.svg", format='svg')
-    plt.show()
+    # plt.show()
 
     # plot_average_reward(x, u, xi_p, T=T, filename=filename)
 
@@ -195,7 +195,7 @@ def plot_average_reward(x, u, xi_p, T=1000, filename=None, policy_name=""):
     plt.legend()
     if filename:
         plt.savefig("figures/" + filename + "_average_reward.svg", format='svg')
-    plt.show()
+    # plt.show()
 
 
 
@@ -274,15 +274,15 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False):
     # Save cumulative reward plot
     filename_safe = name.replace(" ", "_").lower()
     plt.savefig(f"figures/{filename_safe}_cumulative_reward_{N}_trajectories.svg", format='svg')
-    plt.show()
+    # plt.show()
 
 
     ### show the average reward distribution
     plt.figure(figsize=(9, 5))
     # avg reward distribution as a density
     plt.hist(np.mean(all_rewards, axis=1), bins=50, color='purple', alpha=0.7, density=True)
-    reward_final_mean = np.mean(all_rewards[:, -1])
-    reward_final_var = np.var(all_rewards[:, -1])
+    reward_final_mean = np.mean(all_rewards)
+    reward_final_var = np.var(all_rewards)
     plt.text(0.02, 0.98, f'Mean: {reward_final_mean:.2e}\nVar: {reward_final_var:.2e}', transform=plt.gca().transAxes, 
              verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     # show the mean as a dashed line
@@ -295,7 +295,7 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False):
     plt.grid()
     # Save final reward distribution plot
     plt.savefig(f"figures/{filename_safe}_final_reward_distribution_{N}_trajectories.svg", format='svg')
-    plt.show()
+    # plt.show()
 
 
     if show_all:
@@ -324,7 +324,7 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False):
         plt.tight_layout()
         # Save state trajectories plot
         plt.savefig(f"figures/{filename_safe}_state_trajectories_{N}_trajectories.svg", format='svg')
-        plt.show()
+        # plt.show()
 
         ### show the distribution of all the state at all the times
         plt.figure(figsize=(12, 8))
@@ -369,7 +369,7 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False):
         plt.tight_layout()
         # Save state and reward distributions plot
         plt.savefig(f"figures/{filename_safe}_state_distributions_{N}_trajectories.svg", format='svg')
-        plt.show()
+        # plt.show()
 
 
 
@@ -430,7 +430,6 @@ def quadratic_function(params, N=100): # 10 params
 # !pip install cma
 
 # import cma
-
 # # CMA-ES optimization
 # es = cma.CMAEvolutionStrategy([0]*3, 1, {'seed': 42,
 #     'maxfevals': 20000,     
@@ -438,11 +437,12 @@ def quadratic_function(params, N=100): # 10 params
 # })
 # ### 0.5 is the initial standard deviation, increase it for more exploration
 # es.optimize(lambda params: -linear_function(params, N=1000))#, verb_disp=1)
-# verb_disp=1 to see the progress in real time
+# # verb_disp=1 to see the progress in real time
 # best_params_cma = es.result.xbest
-# print(f"Best reward : {-es.result.fbest} with params : {' '.join([f'{p:.4f}' for p in es.result.xbest])}")
+# print(f"Best reward : {-es.result.fbest} with params : {' '.join([f'{p:.8f}' for p in es.result.xbest])}")
 
-best_params_cma = np.array([-0.0529, 37.2788, 29.9648])
+# best_params_cma = np.array([-0.0529, 37.2788, 29.9648])
+best_params_cma = np.array([-0.8864, 2.1253, 1.2096])
 best_policy_cma = get_linear_policy(best_params_cma)
 policy_list.append((best_policy_cma, "Best linear Policy (CMA-ES)"))
 
@@ -462,11 +462,12 @@ policy_list.append((best_policy_cma, "Best linear Policy (CMA-ES)"))
 # print(f"Best reward : {-es.result.fbest} with params : {' '.join([f'{p:.4f}' for p in es.result.xbest])}")
 # verb_disp=1 to see the progress in real time
 # result = -es.result.fbest
-result = 0.0
-best_params_cma_quadratic = np.array([-0.1674, 25.6970, 7.1492, 0.0350, 17.5269, -4.0057, 9.3930, 24.3607, -0.5704, 0.0603])
-best_policy_cma_quadratic = get_quadratic_policy(best_params_cma_quadratic)
-if result > -0.000005:
-    policy_list.append((best_policy_cma_quadratic, "Best quadratic Policy (CMA-ES)"))
+
+# result = 0.0
+# best_params_cma_quadratic = np.array([-0.1674, 25.6970, 7.1492, 0.0350, 17.5269, -4.0057, 9.3930, 24.3607, -0.5704, 0.0603])
+# best_policy_cma_quadratic = get_quadratic_policy(best_params_cma_quadratic)
+# if result > -0.000005:
+#     policy_list.append((best_policy_cma_quadratic, "Best quadratic Policy (CMA-ES)"))
 
 # %%
 # print(f"best params (CMA-ES): {best_params_cma}")
@@ -474,7 +475,7 @@ if result > -0.000005:
 # run_trajectories(best_policy_cma, N=1000, name="best policy (CMA-ES)", show_all=True)
 
 run_trajectories(best_policy_cma, N=1000, name="best linear policy (CMA-ES)", show_all=True)
-run_trajectories(best_policy_cma_quadratic, N=1000, name="best policy (CMA-ES)", show_all=True)
+# run_trajectories(best_policy_cma_quadratic, N=1000, name="best policy (CMA-ES)", show_all=True)
 
 # %%
 # run for all 3 policies and store the rewards
@@ -503,7 +504,7 @@ plt.ylabel('Average Reward')
 plt.grid()
 plt.legend()
 plt.savefig("figures/policy_comparison_histogram.svg", format='svg')
-plt.show()
+# plt.show()
 
 # the integral plot
 plt.figure(figsize=(10, 6))
@@ -519,11 +520,11 @@ plt.ylabel('Cumulative Density')
 plt.grid()
 plt.legend()
 plt.savefig("figures/policy_comparison_cumulative_distribution.svg", format='svg')
-plt.show()
 
 # %%
 
 
-x, u, xi_p = generate_trajectories(best_policy_cma_quadratic, x0=(0, 0, 0), T=1000)
-plot_trajectories(x, u, xi_p, filename="question_3_6_best_quadratic",  policy_name="Best quadratic Policy (CMA-ES)")
-plot_average_reward(x, u, xi_p, filename="question_3_6_best_quadratic")
+# x, u, xi_p = generate_trajectories(best_policy_cma_quadratic, x0=(0, 0, 0), T=1000)
+# plot_trajectories(x, u, xi_p, filename="question_3_6_best_quadratic",  policy_name="Best quadratic Policy (CMA-ES)")
+# plot_average_reward(x, u, xi_p, filename="question_3_6_best_quadratic")
+plt.show()
