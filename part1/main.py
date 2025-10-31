@@ -84,28 +84,6 @@ def average_reward(x, u, xi_p, t):
     return np.mean(reward(x, u, xi_p, t))
 
 
-def generate_trajectories_and_avg_reward(policy, x0=(0, 0, 0), T=1000, N=1):
-    """compute efficienctly the average reward over T time steps
-
-    Args:
-        policy: a function that takes in the current state x_t and returns an action u_t
-        x0 (ndarray): initial state. Defaults to 0.
-        T (int): number of time steps. Defaults to 1000.
-    """
-    u = 0
-    x = np.zeros(3)
-
-    total_reward = 0
-    for t in range(T):
-        u = policy(x)
-        x[0] = x[0] + u # q_t
-        x[1] = (1 - W_A) * x[1] + W_A * SIGMA_A * rng.normal(0, 1)  # za_t
-        x[2] = (1 - W_U) * x[2] + W_U * BETA_U * u  # zu_t
-        g_t = g(x[0], x[1], x[2], u, xi_p=rng.normal(0, 1))
-        c_t = c(g_t)
-        total_reward += c_t
-    return total_reward / T
-
 
 def plot_trajectories(x, u, xi_p, filename=None, mean=False, variance=False, policy_name=""):
     """Plot the trajectories of the state variables and actions over time in a 2x2 grid
@@ -384,18 +362,11 @@ run_trajectories(cliped_policy, N=N, name="clipped policy", show_all=True)
 # plot_trajectories(x, u, xi_p,  filename="question_3_1_2", mean=True, variance=True)
 
 
-# %%
-# reset best policy search
-best_policy = None
-best_reward = -np.inf
-best_params = None
+
 
 # %%
 # Finding the best policy by random search
 
-
-
-range_params = 1.0
 
 def test_policy(policy, N=1000):
     reward_value = 0
