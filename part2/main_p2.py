@@ -83,11 +83,11 @@ def average_reward(x, u, xi_p, t):
 def plot_trajectories(x, u, xi_p, filename=None, mean=False, variance=False, T=None, policy_name=""):
     """Plot the trajectories of the state variables and actions over time in a 2x2 grid
        and add an additional plot for the average reward as a function of time."""
-    print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, x.shape[0]-1)}")
+    # print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, x.shape[0]-1)}")
 
     if T is None:
         T = x.shape[0] - 1
-    print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, T)}")
+    # print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, T)}")
     
     time = np.arange(T+1)
     # plt.title(f"Trajectories of states and actions over time\nPolicy: {policy_name}")
@@ -187,19 +187,16 @@ policy = lambda x: -0.5 * x[0] + 0.5 * x[1] + 0.5 * x[2]
 cliped_policy = lambda x: np.clip(policy(x), -x[0], 1-x[0])
 random_policy = lambda x: rng.uniform(-x[0] * 0.1, (1 - x[0]) * 0.1)
 
-x, u, xi_p = generate_trajectories(policy, x0=(0, 0, 0), T=1000)
-plot_trajectories(x, u, xi_p, filename="question_3_1_unclipped", policy_name="Unclipped Initial Policy")
-plot_average_reward(x, u, xi_p, filename="question_3_1_unclipped", policy_name="Unclipped Initial Policy")
+# x, u, xi_p = generate_trajectories(policy, x0=(0, 0, 0), T=1000)
+# plot_trajectories(x, u, xi_p, filename="question_3_1_unclipped", policy_name="Unclipped Initial Policy")
+# plot_average_reward(x, u, xi_p, filename="question_3_1_unclipped", policy_name="Unclipped Initial Policy")
 
 
-x, u, xi_p = generate_trajectories(cliped_policy, x0=(0, 0, 0), T=1000)
-plot_trajectories(x, u, xi_p, filename="question_3_3_clipped", policy_name="Clipped Initial Policy")
-plot_average_reward(x, u, xi_p, filename="question_3_3_clipped", policy_name="Clipped Initial Policy")
+# x, u, xi_p = generate_trajectories(cliped_policy, x0=(0, 0, 0), T=1000)
+# plot_trajectories(x, u, xi_p, filename="question_3_3_clipped", policy_name="Clipped Initial Policy")
+# plot_average_reward(x, u, xi_p, filename="question_3_3_clipped", policy_name="Clipped Initial Policy")
 
 
-# x, u, xi_p = generate_trajectories(random_policy, x0=(0, 0, 0), T=1000)
-# plot_trajectories(x, u, xi_p, filename="question_3_1_1_random")
-# plot_average_reward(x, u, xi_p, filename="question_3_1_1_random")
 
 policy_list = [(policy, "Initial Policy"), (cliped_policy, "Clipped Initial Policy")]
 
@@ -211,7 +208,7 @@ policy_list = [(policy, "Initial Policy"), (cliped_policy, "Clipped Initial Poli
 rng = np.random.default_rng(42)  # For reproducibility
 
 # Question 3.1.2
-def run_trajectories(policy, N=1000, name="policy", show_all=False, T=1000, show_progress=False):
+def run_trajectories(policy, N=100, name="policy", show_all=False, T=1000, show_progress=False):
     """Run N trajectories using the given policy and plot the average reward over time."""
     if show_all:
         all_x = np.zeros(( T+1, 3, N))
@@ -253,7 +250,7 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False, T=1000, show
     # Save cumulative reward plot
     filename_safe = name.replace(" ", "_").lower()
     plt.savefig(f"figures/{filename_safe}_cumulative_reward_{N}_trajectories.svg", format='svg')
-    plt.show()
+    # plt.show()
 
 
     ### show the reward distribution
@@ -275,7 +272,7 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False, T=1000, show
     plt.grid()
     # Save final reward distribution plot
     plt.savefig(f"figures/{filename_safe}_final_reward_distribution_{N}_trajectories.svg", format='svg')
-    plt.show()
+    # plt.show()
 
 
     if show_all:
@@ -352,6 +349,11 @@ def run_trajectories(policy, N=1000, name="policy", show_all=False, T=1000, show
         # plt.show()
 
 
+        # plot trajectories
+        x, u, xi_p = generate_trajectories(policy, x0=(0, 0, 0), T=T)
+        plot_trajectories(x, u, xi_p, filename=filename_safe + "_ex_trajectory", policy_name=name, T=T, mean=True, variance=True)
+        plot_average_reward(x, u, xi_p, filename=filename_safe + "_ex_trajectory", policy_name=name, T=T)
+
 
 def compare_policies(policy1, policy2, N=100):
     # generate random x of shape (3, N)
@@ -368,8 +370,8 @@ def compare_policies(policy1, policy2, N=100):
 
 
 
-# run_trajectories(policy, N=N, name="unclipped policy", show_all=True)
-# run_trajectories(cliped_policy, N=N, name="clipped policy", show_all=True)
+run_trajectories(policy, N=1000, name="unclipped policy", show_all=True)
+run_trajectories(cliped_policy, N=1000, name="clipped policy", show_all=True)
 
 
 # %%
@@ -722,7 +724,7 @@ policy_list.append((lqr_clip_policy, "LQR Clip Policy"))
 # %%
 
 from scipy.optimize import minimize, LinearConstraint, Bounds
-N = 5
+N = 10
 
 
 nu = 1  # number of inputs  = 1
@@ -821,7 +823,7 @@ def get_mpc_policy(N):
 
 mpc_policy = get_mpc_policy(N)
 # test
-run_trajectories(mpc_policy, N=1, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
+# run_trajectories(mpc_policy, N=1, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
 
 
 
@@ -835,13 +837,14 @@ run_trajectories(mpc_policy, N=1, T=1000, name="MPC Optimal Policy", show_all=Tr
 
 from scipy.linalg import block_diag
 from scipy.optimize import minimize, LinearConstraint, Bounds
-
+import numpy as np
 
 # z = FF x(t) + GG q
 # w = HH z + EE q
 
 
 def precompute_mpc_condensed_matrices(N):
+    global F, G, H, E, Q, R, S, R_0, u_min, u_max, y_min, y_max, nu
     # Condensed MPC : min sum 0.5 q.T H_hat q + F_hat.T q
     # z_{k+1}=F z_k + G q_k, y_k=H z_k + E q_k, bounds on u and y.
 
@@ -929,89 +932,105 @@ def _mpc_condensed(x0, N=N, precomputed_condensed=None):
 def get_mpc_condensed_policy(N):
     precomputed_condensed = precompute_mpc_condensed_matrices(N)
     return lambda x: _mpc_condensed(x, N, precomputed_condensed)
-N = 1
+N = 10
 mpc_policy_condensed = get_mpc_condensed_policy(N)
 
 # test
-run_trajectories(mpc_policy_condensed, N=1, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
-# run_trajectories(mpc_policy, N=1, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
 
-# x, u, xi_p = generate_trajectories(mpc_policy_condensed, x0=(0, 0, 0), T=1000, N=1, xi_p=np.zeros((1000, 10)), show_progress=True)
-# plot_average_reward(x, u, xi_p, filename="lqr_optimal_policy")
-# plot_trajectories(x, u, xi_p, filename="lqr_optimal_policy")
 
 compare_policies(mpc_policy, mpc_policy_condensed, N=100)
 policy_list.append((mpc_policy_condensed, "MPC Optimal Policy"))
 
+# takes 30 min to run
+# run_trajectories(mpc_policy_condensed, N=1, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
+run_trajectories(mpc_policy_condensed, N=100, T=1000, name="MPC Optimal Policy", show_all=True, show_progress=True)
 
+# interesting graph
+x, u, xi_p = generate_trajectories(mpc_policy_condensed, x0=(0, 0, 0), T=1000, N=1, xi_p=np.zeros((1000, 10)), show_progress=True)
+plot_average_reward(x, u, xi_p, filename="mpc_optimal_policy_without_noise")
 
 
 # %%
 #### graphs of N vs reward
-Ns = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30]
-rewards = []
-for N in Ns:
-    pol = get_mpc_condensed_policy(N)
-    rewards.append(test_policy(pol, N=1))
-    print(f"N={N}, Average reward: {rewards[-1]}")
+#### too much variance
+# Ns = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30]
+# rewards = []
+# for N in Ns:
+#     pol = get_mpc_condensed_policy(N)
+#     x, u, xi_p = generate_trajectories(pol, x0=(0, 0, 0), T=1000, N=1, show_progress=True)
+#     rewards_N = c(g(x[0, :, :], x[1, :, :], x[2, :, :], u[0, :])).T
+#     plt.plot(N * np.ones_like(rewards_N), rewards_N, 'o', alpha=0.3, label=f"N={N}" if N==Ns[0] else "")
+#     rewards.append(np.mean(rewards_N))
+#     print(f"N={N}, Average reward: {np.mean(rewards_N)}, std: {np.std(rewards_N)}")
 
-plt.figure()
-plt.plot(Ns, rewards, marker='o')
-plt.xlabel('MPC Horizon N')
-plt.ylabel('Average Reward')
-plt.title('Average Reward vs MPC Horizon')
-plt.grid()
-plt.savefig("figures/mpc_horizon_vs_reward.svg", format='svg')
+# plt.figure()
+# plt.plot(Ns, rewards, marker='o')
+# plt.xlabel('MPC Horizon N')
+# plt.ylabel('Average Reward')
+# plt.title('Average Reward vs MPC Horizon')
+# plt.grid()
+# plt.savefig("figures/mpc_horizon_vs_reward.svg", format='svg')
 
 # %%
 # run for all 3 policies and store the rewards
-n_traj = 10000
+import matplotlib.pyplot as plt
+import numpy as np
 
-print(f"Evaluation of all policies over {n_traj} trajectories ...")
 # filter out duplicate policies by name
 policy_list = list({name: (func, name) for func, name in policy_list}.values())
 
-all_rewards = np.zeros((len(policy_list), n_traj))
-for i in range(len(policy_list)):
-    x, u, xi_p = generate_trajectories(policy_list[i][0], x0=(0, 0, 0), T=1000, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True)
-    all_rewards[i] = np.nanmean(reward(x, u, xi_p, 1000), axis=0).T
-    print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
+
+def plot_reward_distribution(policy_list, name="", n_traj=1000):
+    print(f"Evaluation of all policies over {n_traj} trajectories ...")
+
+    all_rewards = np.zeros((len(policy_list), n_traj))
+    for i in range(len(policy_list)):
+        x, u, xi_p = generate_trajectories(policy_list[i][0], x0=(0, 0, 0), T=1000, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True)
+        all_rewards[i] = np.nanmean(reward(x, u, xi_p, 1000), axis=0).T
+        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
 
 
-# plot all the rewards
-plt.figure(figsize=(10, 6))
-labels = [policy_list[i][1] for i in range(len(policy_list))]
-plt.hist(all_rewards.T, bins=30, label=labels, alpha=1)
-# add the mean of each distribution
-for i in range(all_rewards.shape[0]):
-    plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
-plt.xlabel('Average Reward')
+    # plot all the rewards
+    plt.figure(figsize=(10, 6))
+    labels = [policy_list[i][1] for i in range(len(policy_list))]
+    plt.hist(all_rewards.T, bins=30, label=labels, alpha=1)
+    # add the mean of each distribution
+    for i in range(all_rewards.shape[0]):
+        plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
+    plt.xlabel('Average Reward')
 
-plt.title('Distribution of Average Rewards for Different Policies')
-plt.ylabel('Average Reward')
-plt.grid()
-plt.legend()
-plt.savefig("figures/policy_comparison_histogram.svg", format='svg')
+    plt.title('Distribution of Average Rewards for Different Policies')
+    plt.ylabel('Average Reward')
+    plt.grid()
+    plt.legend()
+    plt.savefig(f"figures/policy_comparison_histogram_{name}.svg", format='svg')
 
 
-# the integral plot
-plt.figure(figsize=(10, 6))
-for i in range(all_rewards.shape[0]):
-    sorted_rewards = np.sort(all_rewards[i])
-    cumulative = np.arange(1, len(sorted_rewards) + 1) / len(sorted_rewards)
-    plt.plot(sorted_rewards, cumulative, label=labels[i])
-    plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
+    # the integral plot
+    plt.figure(figsize=(10, 6))
+    for i in range(all_rewards.shape[0]):
+        sorted_rewards = np.sort(all_rewards[i])
+        cumulative = np.arange(1, len(sorted_rewards) + 1) / len(sorted_rewards)
+        plt.plot(sorted_rewards, cumulative, label=labels[i])
+        plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
 
-plt.xlabel('Average Reward')
-plt.title('Cumulative Distribution of Average Rewards for Different Policies')
-plt.ylabel('Cumulative Density')
-plt.grid()
-plt.legend()
-plt.savefig("figures/policy_comparison_cumulative_distribution.svg", format='svg')
+    plt.xlabel('Average Reward')
+    plt.title('Cumulative Distribution of Average Rewards for Different Policies')
+    plt.ylabel('Cumulative Density')
+    plt.grid()
+    plt.legend()
+    plt.savefig(f"figures/policy_comparison_cumulative_distribution_{name}.svg", format='svg')
+
+
+plot_reward_distribution(policy_list[:3], name="first_three", n_traj=1000)
+plot_reward_distribution(policy_list, name="all", n_traj=1000)
 
 
 # %%
 plt.show()
+
+
+# %%
 
 
 
