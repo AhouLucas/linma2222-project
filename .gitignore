@@ -4,3 +4,4 @@ part1/figures/.DS_Store
 part1/figures/*
 figures/*
 **/figures/*
+**/__pycache__
