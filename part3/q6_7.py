@@ -101,20 +101,26 @@ def lspi():
 
         # Policy update: Optimize Q function obtained from LSTD
         # Sample states to perform policy improvement
-        n_samples = 100 # Increased samples for better regression
+        n_samples = 1000 # Increased samples for better regression
         X_sample = np.random.uniform(-1, 1, (n_samples, 3))
         U_sample = np.zeros(n_samples)
 
         for i in range(n_samples):
             x_s = X_sample[i]
-            # Find u that minimizes Q(x_s, u)
+            
+            # Constraint: 0 <= x[0] + u <= 1
+            # Implies: -x[0] <= u <= 1 - x[0]
+            lb = -x_s[0]
+            ub = 1 - x_s[0]
+
             # We use the current policy as initial guess
             u0 = -K[:, it-1] @ x_s
+            # Clip initial guess to be within valid bounds
+            u0 = np.clip(u0, lb, ub)
             
             # FIX: We want to MAXIMIZE the Q-value (since cost is negative reward)
             # Therefore, we minimize the NEGATIVE Q-value
-            # Added bounds to prevent divergence of the polynomial approximation
-            res = minimize(lambda u: -theta @ psi(x_s, u), u0, method='L-BFGS-B', bounds=[(-5, 5)])
+            res = minimize(lambda u: -theta @ psi(x_s, u), u0, method='L-BFGS-B', bounds=[(lb, ub)])
             U_sample[i] = res.x[0]
 
         # Fit linear policy u = -K x
@@ -210,8 +216,18 @@ def plot_rewards():
     x0 = np.array([1, 1, 1])
     for name, K in policies.items():
         total_reward = 0
-        policy = lambda x: -K @ x
-        states, inputs, _ = generate_trajectories(policy, x0, T=1000)
+        
+        # FIX: Define a policy function that enforces the constraints
+        # The constraint is 0 <= x[0] + u <= 1  =>  -x[0] <= u <= 1 - x[0]
+        def constrained_policy(x):
+            u_lin = -K @ x
+            lb = -x[0]
+            ub = 1 - x[0]
+            return np.clip(u_lin, lb, ub)
+
+        # Use the constrained policy for simulation
+        states, inputs, _ = generate_trajectories(constrained_policy, x0, T=1000)
+        
         rewards[name] = np.zeros(len(inputs))
         for t in range(len(inputs)):
             x_t = states[t]
@@ -224,14 +240,16 @@ def plot_rewards():
 
     plt.figure(figsize=(8, 6))
     for name, reward in rewards.items():
+        # Plotting Cumulative Cost (Positive)
         plt.plot(np.linspace(0, 1000, len(reward)), -reward, label=name)
+        
     plt.legend()
     plt.xlabel("Time step")
-    plt.ylabel("Cumulative Reward")
-    plt.yscale("symlog")
-    plt.title("Comparison of Cumulative Rewards")
+    plt.ylabel("Cumulative Cost (-Reward)")
+    # plt.yscale("symlog") # Optional: Use log scale if differences are huge
+    plt.title("Comparison of Cumulative Rewards (Constrained)")
     plt.grid(True, alpha=0.3)
-    plt.savefig("part3/figures/q63_policy_rewards.png", dpi=300)
+    plt.savefig("part3/figures/q67_policy_rewards.png", dpi=300)
     plt.show()
 
 if __name__ == "__main__":

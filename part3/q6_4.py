@@ -212,8 +212,10 @@ def plot_policy_convergence():
     plt.savefig("part3/figures/q64_policy_convergence.png", dpi=300)
     plt.show()
 
-if __name__ == "__main__":
-    K_lspi = lspi()
-    print("Learned policy K_lspi:", K_lspi[:, -1])
-    # plot_lspd_vs_Q_hat()
-    plot_policy_convergence()
+
+print("LQR Gain K_lqr:", K_lqr)
+# if __name__ == "__main__":
+#     K_lspi = lspi()
+#     print("Learned policy K_lspi:", K_lspi[:, -1])
+#     # plot_lspd_vs_Q_hat()
+#     plot_policy_convergence()
