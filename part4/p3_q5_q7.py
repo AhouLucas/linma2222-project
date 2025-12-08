@@ -301,7 +301,7 @@ def graph_K_evolution(name_K_array, K_lqr, indexes=None, K_lqr_name="K_{lqr}", t
 
     plt.xlabel('Iteration')
     plt.ylabel(f'values')
-    plt.title(f'Evolution of ${','.join(name_K_array.keys())}$ ' + title_suffix)
+    plt.title(f"Evolution of ${','.join(name_K_array.keys())}$ " + title_suffix)
     # plt.ylim(np.min(K_lqr) - 1, np.max(K_lqr) + 1)
     plt.legend()
     plt.grid()

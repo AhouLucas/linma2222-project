@@ -33,7 +33,7 @@ def g(q, za, zu, u):
     """Compute the gross stage reward at each time given state x and action u."""
 
     # Formula found by replacing p_t+1 and p_t by their expressions in the given model (see Question 2.3)
-    return 1000 * q * (za + zu + (GAMMA_U * u)) + THETA * u * (za + zu)
+    return 1000 * (q * (za + zu + (GAMMA_U * u)) + THETA * u * (za + zu))
 
 def c(g):
     return np.maximum(g - (np.pow(g, 2) / 2), 1 - np.exp(-g))

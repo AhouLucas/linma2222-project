@@ -3,6 +3,53 @@
 import numpy as np
 from scipy.linalg import solve_discrete_are
 
+from model import W_A, W_U, BETA_U, GAMMA_U, THETA, SIGMA_P, SIGMA_A
+
+
+#### SYSTEM MATRICES
+# Define system matrices based on the problem description
+F = np.array([[1, 0, 0], 
+              [0, 1 - W_A, 0], 
+              [0, 0, 1 - W_U]])
+
+G = np.array([[1], 
+              [0], 
+              [W_U * BETA_U]])
+
+D = np.array([[0, 0], [W_A * SIGMA_A, 0], [0, 0]])  # Disturbance matrix
+  
+# maximise r(x,u) = 0.5 x.T S x + x.T P u + 0.5 u.T R u 
+# minimise - r(x,u)
+# given    x_t+1 = F x_t + G u_t + D xi_t
+S = np.array([[-(1000 * SIGMA_P)**2, 1000, 1000], 
+                     [1000, 0, 0], 
+                     [1000, 0, 0]]) 
+
+P = np.array([[1000*GAMMA_U - THETA * ((1000 * SIGMA_P)**2)], 
+                     [1000 * THETA], 
+                     [1000 * THETA]]) 
+
+R = np.array([[- (1000 * THETA * SIGMA_P)**2]])
+
+# min c(x,u) = x.T Q x + u.T R u + 2 x.T S u = - 0.5 r(x,u)
+Q = -0.5 * S
+S = -0.5 * P
+R = -0.5 * R
+
+nu = 1  # number of inputs  = 1
+nx = 3  # number of states  = 3
+ny = 3  # number of outputs = 3
+
+H = np.eye(ny)         # Output matrix (assuming full state observation)  # ny x nx
+E = np.zeros((ny, 1))  # Direct feedthrough (assuming none)  # ny x nu
+
+# we use F, G, Q, R, S from before
+# min x.T Q x + u.T R u + 2 x.T S u
+R_0 = Q # last stage cost  # nx x nx
+
+model = (F, G, H, E, D, Q, R, S)
+
+
 def solve_ricatti_infinite_horizon(F, G, Q, R, S, max_iterations=10_000, tolerance=1e-10):
     """Solve the discrete-time algebraic Riccati equation for infinite horizon LQR.
     """
@@ -54,6 +101,23 @@ def compute_lqr_gain(model):
 
 
 
+def model_step_approx(x, u, xi_a=None):
+    """Compute the next state using the approximate model (without noise)."""
+    F, G, H, E, D, Q, R, S = model
+    x = np.asarray(x, dtype=float).reshape(-1)   # (nx,)
+    u = np.asarray(u, dtype=float).reshape(-1)   # (nu,)
+
+    x_next = F @ x + G @ u
+    return x_next
+
+def stage_reward_approx(x_t, u_t, xi_p_t=None):
+    """Compute the approximate reward using the quadratic cost function."""
+    F, G, H, E, D, Q, R, S = model
+    x = np.asarray(x_t, dtype=float).reshape(-1)     # (nx,)
+    u = np.asarray(u_t, dtype=float).reshape(-1)     # (nu,)
+
+    r = - (x.T @ Q @ x + 2 * x.T @ S @ u + u.T @ R @ u)  # maximize reward
+    return r
 
 
 

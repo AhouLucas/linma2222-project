@@ -98,54 +98,12 @@ if RUN_CMA:
 # # Question 4.4 
 
 # %%
-#### SYSTEM MATRICES
-# Define system matrices based on the problem description
-F = np.array([[1, 0, 0], 
-              [0, 1 - W_A, 0], 
-              [0, 0, 1 - W_U]])
-
-G = np.array([[1], 
-              [0], 
-              [W_U * BETA_U]])
-
-D = np.array([[0, 0], [W_A * SIGMA_A, 0], [0, 0]])  # Disturbance matrix
-  
-# maximise r(x,u) = 0.5 x.T S x + x.T P u + 0.5 u.T R u 
-# minimise - r(x,u)
-# given    x_t+1 = F x_t + G u_t + D xi_t
-S = np.array([[-(1000 * SIGMA_P)**2, 1000, 1000], 
-                     [1000, 0, 0], 
-                     [1000, 0, 0]]) 
-
-P = np.array([[1000*GAMMA_U - THETA * ((1000 * SIGMA_P)**2)], 
-                     [1000 * THETA], 
-                     [1000 * THETA]]) 
-
-R = np.array([[- (1000 * THETA * SIGMA_P)**2]])
-
-# min c(x,u) = x.T Q x + u.T R u + 2 x.T S u = - 0.5 r(x,u)
-Q = -0.5 * S
-S = -0.5 * P
-R = -0.5 * R
-
-nu = 1  # number of inputs  = 1
-nx = 3  # number of states  = 3
-ny = 3  # number of outputs = 3
-
-H = np.eye(ny)         # Output matrix (assuming full state observation)  # ny x nx
-E = np.zeros((ny, 1))  # Direct feedthrough (assuming none)  # ny x nu
-
-# we use F, G, Q, R, S from before
-# min x.T Q x + u.T R u + 2 x.T S u
-R_0 = Q # last stage cost  # nx x nx
-
-model = (F, G, H, E, D, Q, R, S)
 
 
 # %%
 np.random.seed(42)
 
-from lqr import compute_lqr_gain
+from lqr import compute_lqr_gain, model
 
 K_lqr = compute_lqr_gain(model)
 # K_lqr = compute_lqr_gain((F, G, np.zeros((H.shape[0], H.shape[1])), E, np.zeros((D.shape[0], D.shape[1])), Q, R, S))
