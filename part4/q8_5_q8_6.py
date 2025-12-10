@@ -43,7 +43,7 @@ def cond_expectation(x, u, policy, psi, model_step, stage_reward, n_mc=20):
     return r_bar, psi_next_mean
 
 
-def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=3000, N=1, model_step_fn=model_step, burn_in=10):
+def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=1000, N=1, model_step_fn=model_step, burn_in=10):
     policy = lambda x: np.random.normal(K_cl @ x, sigma_exp)
     x, u, xi_p = generate_trajectories(policy, x0, T=T, N=N, model_step_fn=model_step_fn)
     # transpose -> (T, N, 3), then reshape to (T*N, 3)
@@ -378,7 +378,7 @@ def lspe_pi(initial_policy,
         K_current = extract_K_from_theta(theta_Q)
         K_list.append(K_current)
 
-        print(f"{k} : theta_Q = {theta_Q} | eta_hat = {eta_hat} | K = {K_current}")
+        print(f"{k} :  eta_hat = {eta_hat} | K = {K_current}")
 
         policy = greedy_policy_from_theta_analytic(theta_Q, psi, constrained=constrained)
 
@@ -482,7 +482,7 @@ def q8_8():
     print("=== QUESTION 8.8: LSPE+PI on approximate model, evaluate on true system ===")
 
     # 1) Generate dataset ON THE APPROXIMATE MODEL
-    data_x_ap, data_u_ap, xi_p_ap = generate_dataset(T=50, N=100, model_step_fn=model_step_approx)
+    data_x_ap, data_u_ap, xi_p_ap = generate_dataset(sigma_exp=0.5, T=300, burn_in=100, N=100, model_step_fn=model_step_approx)
     print("Dataset generated on approximate model (Q8.8).")
 
     # 3) Run LSPE+PI but *model_step and stage_reward come from approximate model*
@@ -497,9 +497,6 @@ def q8_8():
         n_mc=50,
         n_pi_iters=5,
         constrained=False,    # Q8.8 uses UNCONSTRAINED version
-        u_min=-1.0,
-        u_max=1.0,
-        n_grid=201,
     )
     # K_array = np.array([theta_Q_ap_last[:3]])  # store K at each iteration
     graph_K_evolution({"K_k":K_array_ap}, K_lqr, title_suffix="during LSPE+PI on Approx Model")

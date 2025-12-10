@@ -106,8 +106,10 @@ def model_step_approx(x, u, xi_a=None):
     F, G, H, E, D, Q, R, S = model
     x = np.asarray(x, dtype=float).reshape(-1)   # (nx,)
     u = np.asarray(u, dtype=float).reshape(-1)   # (nu,)
+    if xi_a is None: xi_a = np.random.normal(0, 1)
 
-    x_next = F @ x + G @ u
+    D_first_col = D[:, 0]
+    x_next = F @ x + G @ u + D_first_col * xi_a
     return x_next
 
 def stage_reward_approx(x_t, u_t, xi_p_t=None):
@@ -115,6 +117,8 @@ def stage_reward_approx(x_t, u_t, xi_p_t=None):
     F, G, H, E, D, Q, R, S = model
     x = np.asarray(x_t, dtype=float).reshape(-1)     # (nx,)
     u = np.asarray(u_t, dtype=float).reshape(-1)     # (nu,)
+    # if xi_p_t is None: xi_p_t = np.random.normal(0, 1)
+    # maybe should add noise term here?
 
     r = - (x.T @ Q @ x + 2 * x.T @ S @ u + u.T @ R @ u)  # maximize reward
     return r
