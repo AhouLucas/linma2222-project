@@ -37,6 +37,7 @@ RUN_QLAMBDA = True
 
 # %%
 from model import *
+from plotting import *
 
 # %% [markdown]
 # ### Question 3.1
@@ -284,44 +285,7 @@ if RUN_MPC:
 # %%
 ### plot K_list
 from e_pia import compute_E_PIA
-
-
-def graph_K_evolution(name_K_array, K_lqr, indexes=None, K_lqr_name="K_{lqr}", title_suffix="during E-PIA Iteration"):
-    plt.figure(figsize=(10, 6))
-    for j, (name, K_array) in enumerate(name_K_array.items()):
-        for i in range(K_array.shape[1]):
-            if indexes is None:
-                indexes = range(K_array.shape[0])
-
-            plt.plot(indexes, K_array[:, i], label='$' + name + f'[{i}]={K_array[-1, i]:.2f}$', color='C'+str(i), linestyle=["-", "--", ":", "-."][j % 4])
-
-    for i in range(K_array.shape[1]):
-        plt.hlines(K_lqr[0, i], indexes[0], np.max(indexes), linestyles='dashed', label="$" + K_lqr_name + f"[{i}]={K_lqr[0, i]:.2f}$", colors='C'+str(i))
-        # plt.hlines(K_lqr[0, i], 0, len(K_array)-1, linestyles='dashed', label="$K_{lqr}" +f"[{i}]={K_lqr[0, i]:.2f}$", colors='C'+str(i))
-
-    plt.xlabel('Iteration')
-    plt.ylabel(f'values')
-    plt.title(f"Evolution of ${','.join(name_K_array.keys())}$ " + title_suffix)
-    # plt.ylim(np.min(K_lqr) - 1, np.max(K_lqr) + 1)
-    plt.legend()
-    plt.grid()
-    plt.savefig(f"figures/K_evolution_{title_suffix.replace(' ', '_')}.svg", format='svg')
-
-
-
-    ## Plot the evolution of the error norm between Kk and Klqr
-    # K_lqr = K_opt
-    # error_norms = [np.linalg.norm(K - K_lqr) for K in K_list]
-    plt.figure(figsize=(10, 6))
-    for name, K_array in name_K_array.items():
-        error_norms = np.linalg.norm(K_array - K_lqr, axis=1)
-        plt.semilogy(error_norms, label=f"error norm of ${name}$")
-    plt.xlabel('Iteration')
-    plt.ylabel(f'Norm of Error $||K_k - {K_lqr_name}||$')
-    plt.title(f'Error norm between ${",".join(name_K_array.keys())}$ and ${K_lqr_name}$ ' + title_suffix)
-    plt.grid()
-    plt.legend()
-    plt.savefig(f"figures/convergence_{title_suffix.replace(' ', '_')}.svg", format='svg')
+from plotting import graph_K_evolution
 
 if RUN_EPIA:
     K_list = compute_E_PIA(model, max_iterations=1000, tolerance=1e-15, K_init=[-0.5, 0.5, 0.5])
@@ -450,10 +414,10 @@ if RUN_QLAMBDA:
 
 
 
-# K_Q_lambda, H, data = q_lambda_learning_LQR(model, N, T, f_x0, lambda_=0.8, alpha=4e-1, alpha_mul=[(0.07, 10), (0.9, 0.1)])
-# print("Learned K:", K_Q_lambda)
-# # graph_data(data, EXP_NAME=EXP_NAME)
-# graph_K_evolution({"K_{Q_\\lambda}":np.vstack(data["K"]).squeeze()}, K_lqr, indexes=np.array(data["i"]), K_lqr_name="K_{lqr}", title_suffix="during Q-λ Learning")
+    K_Q_lambda, H, data = q_lambda_learning_LQR(model, N, T, f_x0, lambda_=0.8, alpha=4e-1, alpha_mul=[(0.07, 10), (0.9, 0.1)])
+    print("Learned K:", K_Q_lambda)
+    # graph_data(data, EXP_NAME=EXP_NAME)
+    graph_K_evolution({"K_{Q_\\lambda}":np.vstack(data["K"]).squeeze()}, K_lqr, indexes=np.array(data["i"]), K_lqr_name="K_{lqr}", title_suffix="during Q-λ Learning")
 
 
 
@@ -536,54 +500,6 @@ import numpy as np
 # filter out duplicate policies by name
 policy_list = list({name: (func, name) for func, name in policy_list}.values())
 
-
-def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, deterministic=False, x0=(0, 0, 0)):
-    print(f"Evaluation of all policies over {n_traj} trajectories ...")
-
-    all_rewards = np.zeros((len(policy_list), n_traj))
-    for i in range(len(policy_list)):
-        xi_a = np.zeros((T, n_traj)) if deterministic else None
-        xi_p = np.zeros((T, n_traj)) if deterministic else None
-        x, u, xi_p = generate_trajectories(policy_list[i][0], x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True, xi_a=xi_a, xi_p=xi_p)
-        all_rewards[i] = np.nanmean(reward(x, u, xi_p, T), axis=0).T
-        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
-
-
-    # plot all the rewards
-    plt.figure(figsize=(10, 6))
-    labels = [policy_list[i][1] for i in range(len(policy_list))]
-    # start the box to have 90% of the data
-    # plt.hist(all_rewards.T, bins=30, label=labels, alpha=1, density=True)
-    start, end = np.percentile(all_rewards, 5), np.percentile(all_rewards, 95)
-    plt.hist(all_rewards.T, bins=30, range=(start, end), label=labels, alpha=1, density=True)
-    # add the mean of each distribution
-    for i in range(all_rewards.shape[0]):
-        plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
-    plt.xlabel('Average Reward')
-
-    plt.title('Distribution of Average Rewards for Different Policies')
-    plt.ylabel('Average Reward')
-    plt.grid()
-    ## clip to have 90% of the data
-    plt.xlim(np.percentile(all_rewards, 2), np.percentile(all_rewards, 98))
-    plt.legend()
-    plt.savefig(f"figures/policy_comparison_histogram_{name}.svg", format='svg')
-
-
-    # the integral plot
-    plt.figure(figsize=(10, 6))
-    for i in range(all_rewards.shape[0]):
-        sorted_rewards = np.sort(all_rewards[i])
-        cumulative = np.arange(1, len(sorted_rewards) + 1) / len(sorted_rewards)
-        plt.plot(sorted_rewards, cumulative, label=labels[i])
-        plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
-
-    plt.xlabel('Average Reward')
-    plt.title('Cumulative Distribution of Average Rewards for Different Policies')
-    plt.ylabel('Cumulative Density')
-    plt.grid()
-    plt.legend()
-    plt.savefig(f"figures/policy_comparison_cumulative_distribution_{name}.svg", format='svg')
 
 
 f_x0 = lambda: np.multiply(rng.normal(0, 1, size=(3)), np.array([1, SIGMA_A, BETA_U])) * 0.1

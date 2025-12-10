@@ -121,7 +121,10 @@ def stage_reward_approx(x_t, u_t, xi_p_t=None):
 
 
 
-
+def get_lqr_policy():
+    K_lqr = compute_lqr_gain(model)
+    policy_lqr = lambda x: float(K_lqr @ x)
+    return policy_lqr
 
 
 

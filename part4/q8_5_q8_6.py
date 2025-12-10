@@ -1,11 +1,16 @@
 import numpy as np
-import matplotlib.pyplot as plt
-# from scipy.linalg import solve_discrete_are
-# from scipy.optimize import minimize
-# import itertools
+import matplotlib.pyplot as plt 
 from model import generate_trajectories, stage_reward, model_step, K_cl, pol_cl, reward
 from lqr import model, stage_reward_approx, model_step_approx
-# F, G, H, E, D, Q, R, S = model
+from tqdm import tqdm
+
+from scipy.linalg import solve_discrete_lyapunov
+
+# from lqr import get_lqr_policy
+
+from lqr import compute_lqr_gain
+from plotting import plot_reward_distribution
+from plotting import graph_K_evolution
 
 def cond_expectation(x, u, policy, psi, model_step, stage_reward, n_mc=20):
     """
@@ -14,29 +19,22 @@ def cond_expectation(x, u, policy, psi, model_step, stage_reward, n_mc=20):
         E[psi(x_{t+1}, pi(x_{t+1}))]   -> (d,)
     via Monte Carlo using the model dynamics.
     """
-    # ensure d is 1D length of psi
     u = float(np.asarray(u).reshape(-1)[0])
     x = np.asarray(x, dtype=float).reshape(-1)
 
     d = psi(x, u).shape[0]
-
     psi_next_mean = np.zeros(d)
     r_sum = 0.0
 
     for _ in range(n_mc):
         # one-step transition
         x_next = model_step(x, u)
-
-        # stage_reward may return a vector → reduce to scalar
         r = stage_reward(x, u, x_next)
-        r = float(np.mean(r))   # or float(np.asarray(r)) if it's already scalar-like
+        r = float(np.mean(r))
 
         r_sum += r
 
-        # next action
         u_next = policy(x_next)
-
-        # features at next state-action
         psi_next_mean += psi(x_next, u_next)
 
     psi_next_mean /= n_mc
@@ -45,23 +43,12 @@ def cond_expectation(x, u, policy, psi, model_step, stage_reward, n_mc=20):
     return r_bar, psi_next_mean
 
 
-def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=3000, N=1, model_step_fn=model_step):
-    # Kcl = np.array([-0.5, 0.5, 0.5])
-    policy = lambda x: np.random.normal(K_cl@x, sigma_exp**2)
-
+def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=3000, N=1, model_step_fn=model_step, burn_in=10):
+    policy = lambda x: np.random.normal(K_cl @ x, sigma_exp)
     x, u, xi_p = generate_trajectories(policy, x0, T=T, N=N, model_step_fn=model_step_fn)
-    # shape (T+1, 3, N), (T, N)
-    print(f"Generated dataset with shape x: {x.shape}, u: {u.shape}")
-
     # transpose -> (T, N, 3), then reshape to (T*N, 3)
-    x = x[:-1].transpose(0, 2, 1).reshape(-1, x.shape[1])
-
-    # u has shape (T, N). Flatten to (T*N,)
-    u = u.reshape(-1)
-
-
-    print(f"Generated dataset with shape x: {x.shape}, u: {u.shape}")
-
+    x = x[burn_in:-1].transpose(0, 2, 1).reshape(-1, x.shape[1])
+    u = u[burn_in:].reshape(-1)
     return x, u, xi_p
 
 
@@ -83,19 +70,7 @@ def psi(x, u):
 
 
 
-def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, d, n_mc=20):
-    """
-    LSPE: Least-Squares Poisson Error
-
-    data_x : (N_x, nx) array of states (typically length T+1)
-    data_u : (N_u, nu) array of actions (typically length T)
-    W      : (d+1, d+1) regularization matrix (e.g. λ * I)
-    policy : policy π to evaluate (e.g. pol_cl)
-    psi    : basis for Q(x,u), returns R^d
-    model_step, stage_reward : true model + reward
-    n_mc   : Monte Carlo samples for conditional expectations
-    """
-    # Number of usable samples is limited by the shorter of the two
+def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
     N = min(data_x.shape[0], data_u.shape[0])
 
     # Infer feature dimension from first sample
@@ -105,7 +80,9 @@ def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, d, n_mc=20):
     A = np.zeros((d_theta, d_theta))
     b = np.zeros(d_theta)
 
-    for k in range(N):
+    # for k in range(N):
+    # progress bar
+    for k in tqdm(range(N), desc="LSPE"):
         x_k = data_x[k]
         u_k = data_u[k]
 
@@ -137,30 +114,6 @@ def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, d, n_mc=20):
 
     return theta_Q, eta_hat
 
-
-
-# def Q_hat(x, u, policy):
-#     """Compute an approximation of Q by simulating a long trajectory starting at (x, u)
-
-#     Args:
-#         x (ndarray): initial condition
-#         u (ndarray): first control input
-#     """
-#     total_reward = 0
-
-#     # Apply first input to the initial condition
-#     first_input_policy = lambda x: u
-#     next_state = generate_trajectories(first_input_policy, x, T=1)[0][-1]
-
-#     # total_reward += c(g(next_state[0], next_state[1], next_state[2], u))
-#     total_reward += stage_reward(x, u, next_state)
-
-#     states, inputs = generate_trajectories(policy, next_state, T=1000)
-
-#     # total_reward += np.sum(reward(states[:-1], inputs))
-#     total_reward += np.sum(stage_reward(states[:-1], inputs, states[1:]))
-    
-#     return total_reward
 
 def Q_hat_mc(x, u, policy, model_step, stage_reward,
              eta,                # <-- NEW: average reward (e.g. eta_hat)
@@ -205,13 +158,56 @@ def Q_hat_mc(x, u, policy, model_step, stage_reward,
     return float(np.mean(q_vals))
 
 
+# --- load approximate LQR model matrices ---
+F, G, H, E, D, Qc, Rc, Sc = model  # adjust unpacking if your model() returns different
+K = K_cl.reshape(1, -1)                # shape (1, nx) for matrix products
+# Closed-loop matrix A = F + G K
+A = F + G @ K                          # F: (nx,nx), G: (nx,1), K: (1,nx) -> A: (nx,nx)
+# Per-step cost under closed-loop policy: ℓ_π(x) = x^T Q_pi x
+Q_pi = (
+    Qc
+    + K.T @ Rc @ K
+    + (Sc @ K + K.T @ Sc.T)
+)
 
-def plot_Q_lspe_vs_Qhat(theta_Q, eta_hat,  # <-- pass eta_hat
+# Solve discrete-time Lyapunov equation for *cost* differential value:
+#   P = A^T P A + Q_pi
+P = solve_discrete_lyapunov(A.T, Q_pi)
+
+
+def Q_exact_lqr(x, u):
+    x = np.asarray(x, dtype=float).reshape(-1, 1)   # (nx, 1)
+    u = float(np.asarray(u).reshape(-1)[0])
+    u = np.array([[u]])                             # (1, 1)
+
+    # -- immediate cost: ℓ(x,u) = x^T Qc x + u^T Rc u + 2 x^T Sc u
+    # NOTE: This is the *cost*, not reward.
+    cost_immediate = (
+        (x.T @ Qc @ x)[0, 0]
+        + (u.T @ Rc @ u)[0, 0]
+        + 2.0 * (x.T @ Sc @ u)[0, 0]
+    )
+
+    # -- next state under approximate LQR dynamics (no noise term, its contribution is a constant)
+    x_next = F @ x + G @ u   # (nx, 1)
+
+    # differential value V(x) = x^T P x  (for *cost*)
+    V_x      = (x.T      @ P @ x     )[0, 0]
+    V_xnext  = (x_next.T @ P @ x_next)[0, 0]
+
+    # Poisson Q for *cost*:
+    Q_cost = cost_immediate + V_xnext - V_x
+
+    # Convert to reward-based Q: Q_reward = -Q_cost (up to an additive constant)
+    Q_reward = -Q_cost
+
+    return float(Q_reward)
+
+def plot_Q_lspe_vs_Q_fn(theta_Q,
                         data_x, data_u,
-                        policy,
-                        model_step, stage_reward, psi,
+                        Q_function,
+                        psi,
                         n_points=100,
-                        T_mc=1000, n_traj_mc=20,
                         seed=0):
 
     rng = np.random.default_rng(seed)
@@ -229,17 +225,18 @@ def plot_Q_lspe_vs_Qhat(theta_Q, eta_hat,  # <-- pass eta_hat
         # LSPE estimate
         q_lspe = float(theta_Q @ psi(x_k, u_k))
 
-        # Monte Carlo Poisson Q estimate
-        q_hat = Q_hat_mc(x_k, u_k, policy,
-                         model_step, stage_reward,
-                         eta=eta_hat,         # <-- use eta_hat here
-                         T=T_mc, n_traj=n_traj_mc)
+        q_hat = Q_function(x_k, u_k)
 
         Q_lspe_vals.append(q_lspe)
         Q_hat_vals.append(q_hat)
 
     Q_lspe_vals = np.array(Q_lspe_vals)
     Q_hat_vals  = np.array(Q_hat_vals)
+    
+    offset = np.mean(Q_hat_vals - Q_lspe_vals)
+    print(f"Poisson Q offset applied: {offset:.4f}")
+
+    Q_lspe_vals += offset
 
 
     plt.figure(figsize=(6, 6))
@@ -258,19 +255,125 @@ def plot_Q_lspe_vs_Qhat(theta_Q, eta_hat,  # <-- pass eta_hat
 
     plt.xlabel(r"$Q_{\mathrm{LSPE}}(x,u)$")
     plt.ylabel(r"$\hat Q_{\mathrm{MC}}(x,u)$ (Poisson)")
-    plt.title("LSPE Poisson Q vs Monte-Carlo Poisson Q")
+    plt.title("LSP" \
+    "E Poisson Q vs Monte-Carlo Poisson Q")
     plt.grid(True)
     plt.tight_layout()
     plt.savefig('part4/figures/Q_lspe_vs_Qhat.pdf', format='pdf')
-    plt.show()
 
-if __name__ == "__main__":
-    d = 14  # length of psi vector
-    W = 1e-4 * np.eye(d + 1)
+
+
+
+
+
+############################################
+# LSPE + Policy Improvement (Q8.7 / Q8.9) #
+############################################
+
+def greedy_policy_from_theta_unconstrained(theta_Q,
+                                           psi,
+                                           u_min=-1.0,
+                                           u_max=1.0,
+                                           n_grid=201):
+    """
+    Greedy policy improvement for LSPE (unconstrained actions).
+
+    For a given θ_Q and basis ψ, returns a policy π(x) = argmax_u Qθ(x,u)
+    where the maximization is done on a 1D grid [u_min, u_max].
+    """
+    u_grid = np.linspace(u_min, u_max, n_grid)
+
+    def policy(x):
+        vals = [float(theta_Q @ psi(x, u)) for u in u_grid]
+        return float(u_grid[int(np.argmax(vals))])
+
+    return policy
+
+
+def greedy_policy_from_theta_constrained(theta_Q,
+                                         psi,
+                                         n_grid=201):
+    """
+    Greedy policy improvement for LSPE with constraint:
+        0 ≤ q + u ≤ 1  (i.e. u ∈ [-q, 1 - q])
+
+    This implements the constrained policy improvement step (9).
+    """
+    def policy(x):
+        x = np.asarray(x).reshape(-1)
+        q = float(x[0])
+
+        u_min = -q
+        u_max = 1.0 - q
+
+        # Small safety margin in case of numerical issues
+        if u_max < u_min:
+            u_min, u_max = u_max, u_min
+
+        u_grid = np.linspace(u_min, u_max, n_grid)
+        vals = [float(theta_Q @ psi(x, u)) for u in u_grid]
+        return float(u_grid[int(np.argmax(vals))])
+
+    return policy
+
+
+def lspe_pi(initial_policy,
+            data_x,
+            data_u,
+            W,
+            psi,
+            model_step,
+            stage_reward,
+            n_mc=1000,
+            n_pi_iters=5,
+            constrained=False,
+            u_min=-1.0,
+            u_max=1.0,
+            n_grid=201):
+    """
+    LSPE+PI outer loop.
+
+    - initial_policy: π_0 used as starting point (e.g. pol_cl)
+    - data_x, data_u: dataset collected with some exploration policy π_exp
+                      (here generated by generate_dataset)
+    - constrained: if True, use constrained improvement (Q8.9); else unconstrained (Q8.7)
+    - returns: (final_policy, theta_Q_last, eta_hat_last)
+    """
+    policy = initial_policy
+    theta_Q_last = None
+    eta_hat_last = None
+
+    for k in range(n_pi_iters):
+        print(f"\n=== LSPE+PI iteration {k} ===")
+        theta_Q, eta_hat = lspe(
+            data_x, data_u,
+            W=W,
+            policy=policy,
+            psi=psi,
+            model_step=model_step,
+            stage_reward=stage_reward,
+            n_mc=n_mc,
+        )
+        print("  eta_hat =", eta_hat)
+
+        theta_Q_last = theta_Q
+        eta_hat_last = eta_hat
+
+        # Policy improvement
+        if constrained:
+            policy = greedy_policy_from_theta_constrained(
+                theta_Q, psi, n_grid=n_grid
+            )
+        else:
+            policy = greedy_policy_from_theta_unconstrained(
+                theta_Q, psi, u_min=u_min, u_max=u_max, n_grid=n_grid
+            )
+
+    return policy, theta_Q_last, eta_hat_last
+
+
+def q8_5():
     data_x, data_u, xi_p = generate_dataset(T=50, N=100)
-
-    # show the dataset repartition
-    # p(data_x, data_u)
 
     theta_Q, eta_hat = lspe(
         data_x, data_u,
@@ -279,34 +382,30 @@ if __name__ == "__main__":
         psi=psi,
         model_step=model_step,
         stage_reward=stage_reward,
-        d=d,
-        n_mc=200,
+        n_mc=100,
     )
 
     print("Learned theta_Q:", theta_Q)
     print("Learned average reward eta_hat:", eta_hat)
 
-
-    plot_Q_lspe_vs_Qhat(
+    Q_hat_fn = lambda x, u: Q_hat_mc(x, u, pol_cl, model_step, stage_reward, eta=eta_hat, T=50, n_traj=400)
+    plot_Q_lspe_vs_Q_fn(
         theta_Q=theta_Q,
-        eta_hat=eta_hat,
         data_x=data_x,
         data_u=data_u,
-        policy=pol_cl,
-        model_step=model_step,
-        stage_reward=stage_reward,
         psi=psi,
+        Q_function=Q_hat_fn,
         n_points=100,       # how many (x,u) pairs to plot
-        T_mc=100,          # length of MC rollouts
-        n_traj_mc=200,       # MC trajectories per (x,u)
         seed=0,
     )
+    plt.show()
 
 
 
-
+def q8_6():
     ####### on the approximate model
     data_x_approx, data_u_approx, xi_p_approx = generate_dataset(T=50, N=100, model_step_fn=model_step_approx)
+    print("Dataset on approximate model generated.")
 
     theta_Q_approx, eta_hat_approx = lspe(
         data_x_approx, data_u_approx,
@@ -315,24 +414,132 @@ if __name__ == "__main__":
         psi=psi,
         model_step=model_step_approx,
         stage_reward=stage_reward_approx,
-        d=d,
-        n_mc=200,
+        n_mc=100,
     )
 
     print("Learned theta_Q (approx model):", theta_Q_approx)
     print("Learned average reward eta_hat (approx model):", eta_hat_approx)
 
-    plot_Q_lspe_vs_Qhat(
+    plot_Q_lspe_vs_Q_fn(
         theta_Q=theta_Q_approx,
-        eta_hat=eta_hat_approx,
         data_x=data_x_approx,
         data_u=data_u_approx,
-        policy=pol_cl,
-        model_step=model_step_approx,
-        stage_reward=stage_reward_approx,
         psi=psi,
+        Q_function=Q_exact_lqr,
         n_points=100,       # how many (x,u) pairs to plot
-        T_mc=100,          # length of MC rollouts
-        n_traj_mc=200,       # MC trajectories per (x,u)
         seed=0,
     )
+
+    plt.show()
+
+
+
+def q8_7():
+    # --- Data from exploration policy π_exp (same setting as Q8.5) ---
+    data_x_ls, data_u_ls, xi_p_ls = generate_dataset(T=50, N=100)
+    print("Dataset for LSPE+PI on true system generated (Q8.7).")
+
+
+
+    # Run LSPE+PI (unconstrained improvement)
+    pi_lspepi, theta_Q_last, eta_hat_last = lspe_pi(
+        initial_policy=pol_cl, # Initial policy is π_cl
+        data_x=data_x_ls,
+        data_u=data_u_ls,
+        W=W,
+        psi=psi,
+        model_step=model_step,
+        stage_reward=stage_reward,
+        n_mc=200,
+        n_pi_iters=5,      # number of PI iterations – you can tune this
+        constrained=False, # <-- Q8.7 = unconstrained improvement
+        u_min=-1.0,
+        u_max=1.0,
+        n_grid=201,
+    )
+
+    print("Final eta_hat (Q8.7) =", eta_hat_last)
+    ##### COMPARE POLICIES ######
+
+    policy_list.append((pi_lspepi, "LSPE+PI Learned Policy"))
+    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution", T=1000, N=100)
+
+
+def q8_8():
+    print("=== QUESTION 8.8: LSPE+PI on approximate model, evaluate on true system ===")
+
+    # 1) Generate dataset ON THE APPROXIMATE MODEL
+    data_x_ap, data_u_ap, xi_p_ap = generate_dataset(T=50, N=100, model_step_fn=model_step_approx)
+    print("Dataset generated on approximate model (Q8.8).")
+
+    # 3) Run LSPE+PI but *model_step and stage_reward come from approximate model*
+    pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last = lspe_pi(
+        initial_policy=pol_cl,
+        data_x=data_x_ap,
+        data_u=data_u_ap,
+        W=W,
+        psi=psi,
+        model_step=model_step_approx,      # approximate model here
+        stage_reward=stage_reward_approx,  # approximate reward
+        n_mc=200,
+        n_pi_iters=5,
+        constrained=False,    # Q8.8 uses UNCONSTRAINED version
+        u_min=-1.0,
+        u_max=1.0,
+        n_grid=201,
+    )
+    K_list = []
+    graph_K_evolution({"K_k":K_list}, K_lqr, title_suffix="during LSPE+PI on Approx Model")
+
+    print("Final eta_hat (Q8.8, approx model) =", eta_hat_ap_last)
+
+    policy_list.append((pi_lspepi_ap, "LSPE+PI Learned Policy (Approx Model)"))
+    plot_reward_distribution( policy_list, name="Q8_8_reward_distribution", T=1000, N=100)
+
+################
+# Question 8.9 #
+################
+
+def q8_9():
+    # Use the same exploration dataset (or regenerate a new one if you prefer)
+    data_x_ls_c, data_u_ls_c, xi_p_ls_c = generate_dataset(T=50, N=100)
+    print("Dataset for constrained LSPE+PI on true system generated (Q8.9).")
+
+    # Run LSPE+PI with CONSTRAINED improvement (0 ≤ q + u ≤ 1)
+    pi_lspepi_constr, theta_Q_last_c, eta_hat_last_c = lspe_pi(
+        initial_policy=pol_cl,
+        data_x=data_x_ls_c,
+        data_u=data_u_ls_c,
+        W=W,
+        psi=psi,
+        model_step=model_step,
+        stage_reward=stage_reward,
+        n_mc=200,
+        n_pi_iters=5,
+        constrained=True,   # <-- Q8.9 = constrained improvement
+        n_grid=201,
+    )
+    print("Final eta_hat (Q8.9, constrained) =", eta_hat_last_c)
+
+    policy_list.append((pi_lspepi_constr, "LSPE+PI Learned Policy"))
+    plot_reward_distribution( policy_list, name="Q8_9_reward_distribution", T=1000, N=100)
+
+
+if __name__ == "__main__":
+    d = 14  # length of psi vector
+    W = 1e-4 * np.eye(d + 1)
+
+    K_lqr = compute_lqr_gain(model)
+    pol_lqr = lambda x: float(K_lqr @ x)
+    
+    policy_list = [(pol_lqr, "LQR Optimal Policy"), 
+                   (pol_cl, "Closed-Loop Policy")]
+    
+    q8_5()
+    q8_6()
+    q8_7()
+    q8_8()
+    q8_9()
+
+    
+    plt.show()
