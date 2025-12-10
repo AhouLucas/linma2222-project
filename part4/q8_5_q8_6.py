@@ -68,6 +68,23 @@ def psi(x, u):
         q*za, q*zu, q*u, za*zu, za*u, zu*u
     ], dtype=float)
 
+def extract_K_from_theta(theta_Q): #### DEPENDING ON PSI DEFINITION
+    a = theta_Q[7]
+
+    b0  = theta_Q[3]
+    bq  = theta_Q[10]
+    bza = theta_Q[12]
+    bzu = theta_Q[13]
+
+    # Effective linear gain (ignore constant b0)
+    K = np.array([
+        -bq  / (2*a),
+        -bza / (2*a),
+        -bzu / (2*a)
+    ])
+    return K
+
+
 
 
 def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
@@ -79,6 +96,8 @@ def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
 
     A = np.zeros((d_theta, d_theta))
     b = np.zeros(d_theta)
+
+    psi_xu = np.stack([psi(data_x[i], data_u[i]) for i in range(N)], axis=0)
 
     # for k in range(N):
     # progress bar
@@ -92,7 +111,8 @@ def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
         )
 
         # 2) Current features
-        psi_now_k = psi(x_k, u_k)
+        # psi_now_k = psi(x_k, u_k)
+        psi_now_k = psi_xu[k]
 
         # 3) Poisson feature vector φ_k = [ E[psi_next] - psi_now ; -1 ]
         phi_k = np.concatenate([psi_next_mean_k - psi_now_k, np.array([-1.0])])
@@ -270,51 +290,47 @@ def plot_Q_lspe_vs_Q_fn(theta_Q,
 # LSPE + Policy Improvement (Q8.7 / Q8.9) #
 ############################################
 
-def greedy_policy_from_theta_unconstrained(theta_Q,
-                                           psi,
-                                           u_min=-1.0,
-                                           u_max=1.0,
-                                           n_grid=201):
-    """
-    Greedy policy improvement for LSPE (unconstrained actions).
-
-    For a given θ_Q and basis ψ, returns a policy π(x) = argmax_u Qθ(x,u)
-    where the maximization is done on a 1D grid [u_min, u_max].
-    """
-    u_grid = np.linspace(u_min, u_max, n_grid)
+def greedy_policy_from_theta_analytic(theta_Q, _psi, constrained=False):
+    assert _psi == psi, "This function assumes a specific psi definition."
+    θ = theta_Q
 
     def policy(x):
+        q, za, zu = np.asarray(x).reshape(-1)[:3]
+
+        # Quadratic coefficients
+        a = θ[7]  # coefficient of u^2
+        b = θ[3] + θ[10]*q + θ[12]*za + θ[13]*zu  # linear in u
+
+        # If a < 0 → parabola opens downward → unique max
+        if a < 0:
+            u_star = -b / (2*a)
+        else:
+            # convex or flat: max achieved at boundaries
+            u_star = 0.0  # or choose a boundary, but 0 is fine
+            
+        if constrained:
+            u_min = -q
+            u_max = 1.0 - q
+            u_star = np.clip(u_star, u_min, u_max)
+        return float(u_star)
+
+    return policy
+
+def greedy_policy_from_theta_unconstrained(theta_Q, psi, constrained=False, n_grid=201):
+    base_u_grid = np.linspace(-1.0, 1.0, n_grid)
+    def policy(x):
+        if constrained:
+            x = np.asarray(x).reshape(-1)
+            q = float(x[0])
+            u_grid = np.linspace(-q, 1.0 - q, n_grid)
+        else:
+            u_grid = base_u_grid
+            
         vals = [float(theta_Q @ psi(x, u)) for u in u_grid]
         return float(u_grid[int(np.argmax(vals))])
 
     return policy
 
-
-def greedy_policy_from_theta_constrained(theta_Q,
-                                         psi,
-                                         n_grid=201):
-    """
-    Greedy policy improvement for LSPE with constraint:
-        0 ≤ q + u ≤ 1  (i.e. u ∈ [-q, 1 - q])
-
-    This implements the constrained policy improvement step (9).
-    """
-    def policy(x):
-        x = np.asarray(x).reshape(-1)
-        q = float(x[0])
-
-        u_min = -q
-        u_max = 1.0 - q
-
-        # Small safety margin in case of numerical issues
-        if u_max < u_min:
-            u_min, u_max = u_max, u_min
-
-        u_grid = np.linspace(u_min, u_max, n_grid)
-        vals = [float(theta_Q @ psi(x, u)) for u in u_grid]
-        return float(u_grid[int(np.argmax(vals))])
-
-    return policy
 
 
 def lspe_pi(initial_policy,
@@ -342,6 +358,7 @@ def lspe_pi(initial_policy,
     policy = initial_policy
     theta_Q_last = None
     eta_hat_last = None
+    K_list = []
 
     for k in range(n_pi_iters):
         print(f"\n=== LSPE+PI iteration {k} ===")
@@ -354,22 +371,18 @@ def lspe_pi(initial_policy,
             stage_reward=stage_reward,
             n_mc=n_mc,
         )
-        print("  eta_hat =", eta_hat)
 
         theta_Q_last = theta_Q
         eta_hat_last = eta_hat
 
-        # Policy improvement
-        if constrained:
-            policy = greedy_policy_from_theta_constrained(
-                theta_Q, psi, n_grid=n_grid
-            )
-        else:
-            policy = greedy_policy_from_theta_unconstrained(
-                theta_Q, psi, u_min=u_min, u_max=u_max, n_grid=n_grid
-            )
+        K_current = extract_K_from_theta(theta_Q)
+        K_list.append(K_current)
 
-    return policy, theta_Q_last, eta_hat_last
+        print(f"{k} : theta_Q = {theta_Q} | eta_hat = {eta_hat} | K = {K_current}")
+
+        policy = greedy_policy_from_theta_analytic(theta_Q, psi, constrained=constrained)
+
+    return policy, theta_Q_last, eta_hat_last, np.array(K_list)
 
 
 def q8_5():
@@ -436,13 +449,13 @@ def q8_6():
 
 def q8_7():
     # --- Data from exploration policy π_exp (same setting as Q8.5) ---
-    data_x_ls, data_u_ls, xi_p_ls = generate_dataset(T=50, N=100)
+    data_x_ls, data_u_ls, xi_p_ls = generate_dataset(T=50, N=50)
     print("Dataset for LSPE+PI on true system generated (Q8.7).")
 
 
 
     # Run LSPE+PI (unconstrained improvement)
-    pi_lspepi, theta_Q_last, eta_hat_last = lspe_pi(
+    pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(
         initial_policy=pol_cl, # Initial policy is π_cl
         data_x=data_x_ls,
         data_u=data_u_ls,
@@ -450,7 +463,7 @@ def q8_7():
         psi=psi,
         model_step=model_step,
         stage_reward=stage_reward,
-        n_mc=200,
+        n_mc=50,
         n_pi_iters=5,      # number of PI iterations – you can tune this
         constrained=False, # <-- Q8.7 = unconstrained improvement
         u_min=-1.0,
@@ -462,7 +475,7 @@ def q8_7():
     ##### COMPARE POLICIES ######
 
     policy_list.append((pi_lspepi, "LSPE+PI Learned Policy"))
-    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution", T=1000, N=100)
+    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution", T=1000, n_traj=100)
 
 
 def q8_8():
@@ -473,7 +486,7 @@ def q8_8():
     print("Dataset generated on approximate model (Q8.8).")
 
     # 3) Run LSPE+PI but *model_step and stage_reward come from approximate model*
-    pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last = lspe_pi(
+    pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last, K_array_ap = lspe_pi(
         initial_policy=pol_cl,
         data_x=data_x_ap,
         data_u=data_u_ap,
@@ -481,20 +494,20 @@ def q8_8():
         psi=psi,
         model_step=model_step_approx,      # approximate model here
         stage_reward=stage_reward_approx,  # approximate reward
-        n_mc=200,
+        n_mc=50,
         n_pi_iters=5,
         constrained=False,    # Q8.8 uses UNCONSTRAINED version
         u_min=-1.0,
         u_max=1.0,
         n_grid=201,
     )
-    K_list = []
-    graph_K_evolution({"K_k":K_list}, K_lqr, title_suffix="during LSPE+PI on Approx Model")
+    # K_array = np.array([theta_Q_ap_last[:3]])  # store K at each iteration
+    graph_K_evolution({"K_k":K_array_ap}, K_lqr, title_suffix="during LSPE+PI on Approx Model")
 
     print("Final eta_hat (Q8.8, approx model) =", eta_hat_ap_last)
 
     policy_list.append((pi_lspepi_ap, "LSPE+PI Learned Policy (Approx Model)"))
-    plot_reward_distribution( policy_list, name="Q8_8_reward_distribution", T=1000, N=100)
+    plot_reward_distribution( policy_list, name="Q8_8_reward_distribution", T=1000, n_traj=100)
 
 ################
 # Question 8.9 #
@@ -506,7 +519,7 @@ def q8_9():
     print("Dataset for constrained LSPE+PI on true system generated (Q8.9).")
 
     # Run LSPE+PI with CONSTRAINED improvement (0 ≤ q + u ≤ 1)
-    pi_lspepi_constr, theta_Q_last_c, eta_hat_last_c = lspe_pi(
+    pi_lspepi_constr, theta_Q_last_c, eta_hat_last_c, K_array_c = lspe_pi(
         initial_policy=pol_cl,
         data_x=data_x_ls_c,
         data_u=data_u_ls_c,
@@ -514,7 +527,7 @@ def q8_9():
         psi=psi,
         model_step=model_step,
         stage_reward=stage_reward,
-        n_mc=200,
+        n_mc=50,
         n_pi_iters=5,
         constrained=True,   # <-- Q8.9 = constrained improvement
         n_grid=201,
@@ -522,7 +535,7 @@ def q8_9():
     print("Final eta_hat (Q8.9, constrained) =", eta_hat_last_c)
 
     policy_list.append((pi_lspepi_constr, "LSPE+PI Learned Policy"))
-    plot_reward_distribution( policy_list, name="Q8_9_reward_distribution", T=1000, N=100)
+    plot_reward_distribution( policy_list, name="Q8_9_reward_distribution", T=1000, n_traj=1000)
 
 
 if __name__ == "__main__":
@@ -535,11 +548,11 @@ if __name__ == "__main__":
     policy_list = [(pol_lqr, "LQR Optimal Policy"), 
                    (pol_cl, "Closed-Loop Policy")]
     
-    q8_5()
-    q8_6()
-    q8_7()
+    # q8_5()
+    # q8_6()
+    # q8_7()
     q8_8()
-    q8_9()
+    # q8_9()
 
     
     plt.show()
