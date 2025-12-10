@@ -4,7 +4,7 @@
 #show: conf.with(
   lang: "en",
   cours: "LINMA2222 - Stochastic Optimal Control & RL",
-  subject: "Project - Part 4",
+  subject: "Project - Part 4: Mean Poisson Error",
   title: "Optimal Portfolio Strategy",
   students: (
     (name: "Lucas Ahou", noma: 35942200),
@@ -21,8 +21,6 @@
 
 #let bg-color = rgb(150, 150, 150, 100)
 
-
-= 8 Mean-square Poisson error
 
 
 == Question 8.1
@@ -200,4 +198,114 @@ Propose an approximation of $A$ and $b$ in Question 8.2 from data obtained from 
   $
 
   where we assumed that we have access to $r_i$ to act as an estimate for $overline(r)(x_i, u_i)$.
+]
+
+== Question 8.4
+Provide a finite-support kernel that approximates the transition kernel of the system
+
+#answer(title:"Answer")[
+  Given a current state and control $(x, u)$, the next state $x^+ = mat(q^+, z^(a+), z^(u+))^top$ is given by:
+
+  $
+    cases(
+      q^+ &= q + u quad &"(deterministic)",
+      z^(a+) &= (1 - omega^a)z^a + omega^a sigma^a xi^a\, quad & xi^a tilde cal(N)(0, 1),
+      z^(u+) &= (1 - omega^u)z^u + omega^u beta^a u quad &"(deterministic)"
+    )
+  $
+]
+
+#pagebreak()
+
+#answer(title:"Answer (cont.)")[
+  To approximate the transition kernel, we will use a Monte-Carlo approximation. For each $(x, u)$, we can:
+
+  1. Sample $M$ independent noise values $xi^(a, (1)), dots, xi^(a, (M)) tilde cal(N)(0, 1)$
+  2. Compute $z^(a+, (m)) = (1 - omega^a)z^a + omega^a sigma^a xi^(a, (m))$
+  3. $p_(m)(x, u) = 1\/M$
+
+  The kernel is then given by:
+
+  $
+    kappa_(M)(x^+ | x, u) = 1/M sum_(m=1)^(M) delta_(x^((m)+)(x,u))(x^+)
+  $
+
+  where:
+
+  $
+    x^((m)+)(x,u) = vec(q + u, (1 - omega^a)z^a + omega^a sigma^a xi^(a, (m)), (1 - omega^u)z^u + omega^u beta^a u)
+  $
+]
+
+== Question 8.5
+Apply the LSPE algorithm to estimate the $Q$-function of the closed-loop system with
+policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the system. To generate your data, use an exploration policy $pi_"exp"$, e.g., use $pi_"exp"(dot | x) tilde cal(N)(K_"cl"x, sigma^2_("exp"))$. Make also a reasonable choice of basis functions, motivated briefly. Comment your results.
+
+#answer(title:"Answer")[
+  For the choice of the basis, we chose the following one:
+
+  $
+    psi(x, u) = mat(q, z^a, z^u, u, q^2, (z^a)^2, (z^u)^2, u^2, q z^a, q z^u, q u, z^a z^u, z^a u, z^u u)^top
+  $
+
+  The reason why we chose this is because it allows to capture non-linearities while still being low-dimensional enough for fast computation. In the previous part, it also allowed to perfectly approximate the LQR $Q$-function and we will thus use it again in this part.
+
+  After we implemented the LSPE algorithm previously described on the closed-loop system with policy $pi_"cl"$, we plotted $Q_"LSPE"$ learned from the algorithm against an empirical evaluation of the $Q$-function:
+
+]
+
+#answer(title:"Answer (cont.)")[
+  #figure(
+    image("../figures/Q_comparison_Q_mathrmLSPE(x,u)_vs_hat_Q_mathrmMC(x,u)_(Poisson).svg", width: 50%),
+    caption: [Experimental $Q$-function obtained via Monte-Carlo approximation against $Q_"LSPE"$]
+  )<fig:q85_QLSPE>
+
+  On @fig:q85_QLSPE, we see that the $Q_"LSPE"$ approximates the estimation pretty well. We notice a slight deviation from the identity line but the approximation is still acceptable.
+]
+
+
+== Question 8.6
+
+#answer(title:"Answer")[
+  Again, we ran the LSPE algorithm, this time on the LQR approximate model from section 4. We use the same choice of basis as the last question.
+
+  #figure(
+    image("../figures/Q_comparison_Q_mathrmLSPE(x,u)_(Approx_Model)_vs_Q_mathrmExact(x,u)_(LQR_Model).svg", width: 50%),
+    caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
+  )<fig:q86_QLSPE>
+
+  On @fig:q86_QLSPE, we can see that the $Q_"LSPE"$ function is a bit off from the exact $Q$-function. However, it can still be considered a relatively reasonable approximation. Though there might be some choices of implementation that can improve this approximation, such as searching for a better basis for the $Q$-function for example.
+]
+
+#pagebreak()
+
+== Question 8.7
+
+For the setting of Question 8.5, implement the LSPE+PI algorithm, using $pi_"cl"$ as initial policy. Denote the resulting policy by $pi_"lspepi"$. Repeat Question 3.2 for $pi_"lspepi"$. Compare the averaged reward with that of the policies $pi_"cl"$ and $pi_"lqr"$.
+
+#answer(title: "Answer")[
+  As stated in the assignment, we took the LSPE algorithm implemented in Question 8.5 and added a policy improvement step to get a LSPE+PI algorithm. 
+
+  *TODO*
+]
+
+== Question 8.8
+
+For the setting of Question 8.6, implement the LSPE+PI algorithm, using $pi_"cl"$ as initial policy. Demonstrate the convergence of the gain sequence $K_k$ to $K_"lqr"$ (where $K_"lqr"$ is the gain associated to $pi_"lqr"$) by plotting the evolution of the error norm with $k$.
+
+#answer(title: "Answer")[
+  Again, we ran LSPE+PI but on the LQR approximate model starting with $pi_"cl"$ as an initial policy. As stated, we plotted the evolution of the error between $K_k$ and $K_"lqr"$. 
+
+   #figure(
+    image("../figures/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 50%),
+    caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
+  )<fig:q88_convergence>
+
+  Here on @fig:q88_convergence, we see that after a few iterations, the LSPE policy converges to the optimal $K_"lqr"$ one. Altough there is a small error even after convergences, the error is small enough for this approximated policy to be considered a good approximation.
+]
+
+== Question 8.9
+
+#answer(title: "Answer")[
+  *TODO*
 ]
