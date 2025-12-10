@@ -33,16 +33,6 @@ def generate_trajectories(policy, x0=(0, 0, 0), T=1000, N=1,
                           show_progress=False):
     """Generate the state variables x_t and actions u_t for t=0,...,T
        using the given policy and one–step model.
-
-    Args:
-        policy: function x_t -> u_t
-        x0 (ndarray or str or callable): initial state or initializer
-        T (int): horizon length
-        N (int): number of trajectories
-        model_step_fn: function (x, u, xi_a) -> x_next
-                       if None, uses the global `model_step`
-        xi_a, xi_p: optional pre-sampled noises of shape (T, N)
-        show_progress (bool): whether to wrap loop with tqdm
     """
 
     x = np.zeros((T+1, 3, N))  # State variables: q_t, za_t, zu_t

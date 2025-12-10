@@ -11,7 +11,9 @@ def plot_trajectories(x, u, xi_p, filename=None, mean=False, variance=False, T=N
     # print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, x.shape[0]-1)}")
 
     if T is None:
-        T = x.shape[0] - 1
+        T = min(x.shape[0] - 1, u.shape[0])
+        x = x[:T+1]
+        u = u[:T]
     # print(f"Plotting {filename} : reward = {average_reward(x, u, xi_p, T)}")
     
     time = np.arange(T+1)

@@ -9,7 +9,7 @@ from scipy.linalg import solve_discrete_lyapunov
 # from lqr import get_lqr_policy
 
 from lqr import compute_lqr_gain
-from plotting import plot_reward_distribution
+from plotting import plot_reward_distribution, plot_trajectories
 from plotting import graph_K_evolution
 
 def cond_expectation(x, u, policy, psi, model_step, stage_reward, n_mc=20):
@@ -47,8 +47,9 @@ def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=1000, N=1,
     policy = lambda x: np.random.normal(K_cl @ x, sigma_exp)
     x, u, xi_p = generate_trajectories(policy, x0, T=T, N=N, model_step_fn=model_step_fn)
     # transpose -> (T, N, 3), then reshape to (T*N, 3)
-    x = x[burn_in:-1].transpose(0, 2, 1).reshape(-1, x.shape[1])
+    x = x[burn_in:-1].transpose(0, 2, 1).reshape(-1, 3)
     u = u[burn_in:].reshape(-1)
+
     return x, u, xi_p
 
 
@@ -82,7 +83,7 @@ def extract_K_from_theta(theta_Q): #### DEPENDING ON PSI DEFINITION
 
 
 
-def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
+def lspe(data_x, data_u, policy, psi, model_step, stage_reward, n_mc=20):
     N = min(data_x.shape[0], data_u.shape[0])
 
     # Infer feature dimension from first sample
@@ -117,8 +118,7 @@ def lspe(data_x, data_u, W, policy, psi, model_step, stage_reward, n_mc=20):
     A /= N
     b /= N
 
-    # W should be (d+1, d+1)
-    A_reg = A + W / N
+    A_reg = A + (1e-6 * np.eye(d + 1)) / N
 
     theta = np.linalg.solve(A_reg, b)
 
@@ -207,63 +207,65 @@ def Q_exact_lqr(x, u):
 
     return float(Q_reward)
 
-def plot_Q_lspe_vs_Q_fn(theta_Q,
-                        data_x, data_u,
-                        Q_function,
-                        psi,
-                        n_points=100,
-                        seed=0):
+def plot_Xfn_vs_Yfn(X_function, Y_function,
+                        data_x=None, data_u=None,
+                        n_points=100,seed=0, x_label=r"$Q_{\mathrm{LSPE}}(x,u)$", y_label=r"$Q_{\mathrm{Exact}}(x,u)$"):
 
     rng = np.random.default_rng(seed)
+
+    if data_x is None or data_u is None:
+        data_x, data_u, _ = generate_dataset(T=200, burn_in=100, N=100)
 
     N = min(data_x.shape[0], data_u.shape[0])
     idxs = rng.choice(N, size=min(n_points, N), replace=False)
 
-    Q_lspe_vals = []
-    Q_hat_vals  = []
+    X_vals = []
+    Y_vals  = []
+    xu_sizes    = []
 
     for k in idxs:
         x_k = data_x[k]
         u_k = data_u[k]
 
-        # LSPE estimate
-        q_lspe = float(theta_Q @ psi(x_k, u_k))
+        X_vals.append(X_function(x_k, u_k))
+        Y_vals.append(Y_function(x_k, u_k))
+        xu_sizes.append(np.linalg.norm(np.concatenate([x_k.reshape(-1), np.array([u_k])])))
 
-        q_hat = Q_function(x_k, u_k)
-
-        Q_lspe_vals.append(q_lspe)
-        Q_hat_vals.append(q_hat)
-
-    Q_lspe_vals = np.array(Q_lspe_vals)
-    Q_hat_vals  = np.array(Q_hat_vals)
+    X_vals = np.array(X_vals)
+    Y_vals  = np.array(Y_vals)
+    xu_sizes    = np.array(xu_sizes)
     
-    offset = np.mean(Q_hat_vals - Q_lspe_vals)
+    offset = np.mean(Y_vals - X_vals)
     print(f"Poisson Q offset applied: {offset:.4f}")
 
-    Q_lspe_vals += offset
+    X_vals += offset
 
 
     plt.figure(figsize=(6, 6))
     ### Polyfit
-    coeffs = np.polyfit(Q_lspe_vals, Q_hat_vals, deg=1)
+    coeffs = np.polyfit(X_vals, Y_vals, deg=1)
     poly_fit = np.poly1d(coeffs)
-    x_fit = np.linspace(Q_lspe_vals.min(), Q_lspe_vals.max(), 100)
+    x_fit = np.linspace(X_vals.min(), X_vals.max(), 100)
     y_fit = poly_fit(x_fit)
     plt.plot(x_fit, y_fit, color='red', linestyle='-', label='Polyfit')
     print(f"Polyfit : y = {coeffs[0]:.4f} x + {coeffs[1]:.4f}")
+    
+    # plt.scatter(Q_lspe_vals, Q_hat_vals, s=15, alpha=0.7)
+    # color by xu_sizes
+    scatter = plt.scatter(X_vals, Y_vals, c=xu_sizes, s=30, cmap='viridis', alpha=0.7)
+    cbar = plt.colorbar(scatter)
 
-    plt.scatter(Q_lspe_vals, Q_hat_vals, s=15, alpha=0.7)
-    lo = min(Q_lspe_vals.min(), Q_hat_vals.min())
-    hi = max(Q_lspe_vals.max(), Q_hat_vals.max())
+    lo = min(X_vals.min(), Y_vals.min())
+    hi = max(X_vals.max(), Y_vals.max())
     plt.plot([lo, hi], [lo, hi], linestyle="--")
 
-    plt.xlabel(r"$Q_{\mathrm{LSPE}}(x,u)$")
-    plt.ylabel(r"$\hat Q_{\mathrm{MC}}(x,u)$ (Poisson)")
-    plt.title("LSP" \
-    "E Poisson Q vs Monte-Carlo Poisson Q")
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(f"Comparison of LSPE {x_label} and {y_label}")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('figures/Q_lspe_vs_Qhat.pdf', format='pdf')
+    labels = (x_label + " vs " + y_label).replace("$", "").replace("{", "").replace("}", "").replace("\\", "").replace(" ", "_")
+    plt.savefig(f'figures/Q_comparison_{labels}.svg', format='svg')
 
 
 
@@ -317,7 +319,7 @@ def greedy_policy_from_theta_unconstrained(theta_Q, psi, constrained=False, n_gr
 
 
 
-def lspe_pi(initial_policy,data_x,data_u,W,psi,model_step, stage_reward,
+def lspe_pi(initial_policy, data_x,data_u, psi,model_step, stage_reward,
             n_mc=1000,
             n_pi_iters=5,
             constrained=False,
@@ -334,7 +336,6 @@ def lspe_pi(initial_policy,data_x,data_u,W,psi,model_step, stage_reward,
         print(f"\n=== LSPE+PI iteration {k} ===")
         theta_Q, eta_hat = lspe(
             data_x, data_u,
-            W=W,
             policy=policy,
             psi=psi,
             model_step=model_step,
@@ -356,9 +357,10 @@ def lspe_pi(initial_policy,data_x,data_u,W,psi,model_step, stage_reward,
 
 
 def q8_5():
-    data_x, data_u, xi_p = generate_dataset(T=50, N=100)
+    data_x, data_u, xi_p = generate_dataset(T=50, N=200)
+    plot_trajectories(data_x, data_u, xi_p, filename=f"dataset_trajectories_Q85")
 
-    theta_Q, eta_hat = lspe(data_x, data_u,W=W,
+    theta_Q, eta_hat = lspe(data_x, data_u,
         policy=pol_cl,
         psi=psi,
         model_step=model_step,
@@ -370,38 +372,55 @@ def q8_5():
     print("Learned average reward eta_hat:", eta_hat)
 
     Q_hat_fn = lambda x, u: Q_hat_mc(x, u, pol_cl, model_step, stage_reward, eta=eta_hat, T=50, n_traj=400)
-    plot_Q_lspe_vs_Q_fn(theta_Q=theta_Q,data_x=data_x,data_u=data_u,
-        psi=psi,
-        Q_function=Q_hat_fn,
+    plot_Xfn_vs_Yfn(data_x=data_x,data_u=data_u,
+        X_function=lambda x, u: float(theta_Q @ psi(x, u)),
+        Y_function=Q_hat_fn,
         n_points=100,       # how many (x,u) pairs to plot
         seed=0,
+        x_label=r"$Q_{\mathrm{LSPE}}$",
+        y_label=r"$\hat Q_{\mathrm{MC}}$ (Poisson)"
     )
-    plt.show()
 
 
 
 def q8_6():
     ####### on the approximate model
-    data_x_approx, data_u_approx, xi_p_approx = generate_dataset(T=50, N=100, model_step_fn=model_step_approx)
-    print("Dataset on approximate model generated.")
+    print("=== QUESTION 8.6: LSPE on approximate model ===")
+    # data_x_approx, data_u_approx, xi_p_approx = generate_dataset(T=100, burn_in=50, N=200, model_step_fn=model_step_approx)
+    data_x_approx, data_u_approx, xi_p_approx = generate_dataset(sigma_exp=0.5, T=200, burn_in=100, N=200, model_step_fn=model_step_approx)
+    plot_trajectories(data_x_approx, data_u_approx, xi_p_approx, filename=f"dataset_trajectories_Q86_approx_model")
 
-    theta_Q_approx, eta_hat_approx = lspe(data_x_approx, data_u_approx, W=W,policy=pol_cl,
+
+    theta_Q_approx, eta_hat_approx = lspe(data_x_approx, data_u_approx, policy=pol_cl,
         psi=psi,
         model_step=model_step_approx,
         stage_reward=stage_reward_approx,
-        n_mc=100,
+        n_mc=200,
     )
 
     print("Learned theta_Q (approx model):", theta_Q_approx)
     print("Learned average reward eta_hat (approx model):", eta_hat_approx)
 
-    plot_Q_lspe_vs_Q_fn(theta_Q=theta_Q_approx,data_x=data_x_approx,data_u=data_u_approx,
-        psi=psi, Q_function=Q_exact_lqr,
-        n_points=100,       # how many (x,u) pairs to plot
+
+
+    plot_Xfn_vs_Yfn(data_x=data_x_approx, data_u=data_u_approx,
+        X_function=lambda x, u: float(theta_Q_approx @ psi(x, u)),
+        Y_function=Q_exact_lqr,
+        n_points=1000,       # how many (x,u) pairs to plot
         seed=0,
+        x_label=r"$Q_{\mathrm{LSPE}}$ (Approx Model)",
+        y_label=r"$Q_{\mathrm{Exact}}$ (LQR Model)"
     )
 
-    plt.show()
+
+    plot_Xfn_vs_Yfn(
+        X_function=lambda x, u: float(theta_Q_approx @ psi(x, u)),
+        Y_function=Q_exact_lqr,
+        n_points=1000,       # how many (x,u) pairs to plot
+        seed=0,
+        x_label=r"$Q_{\mathrm{LSPE}}$ (Approx Model)",
+        y_label=r"$Q_{\mathrm{Exact}}$ (LQR Model) "
+    )
 
 
 
@@ -414,7 +433,7 @@ def q8_7():
 
     # Run LSPE+PI (unconstrained improvement)
     pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(initial_policy=pol_cl,
-        data_x=data_x_ls, data_u=data_u_ls, W=W,psi=psi,
+        data_x=data_x_ls, data_u=data_u_ls, psi=psi,
         model_step=model_step,stage_reward=stage_reward,
         n_mc=50,
         n_pi_iters=5,      # number of PI iterations – you can tune this
@@ -440,7 +459,7 @@ def q8_8():
 
     # 3) Run LSPE+PI but *model_step and stage_reward come from approximate model*
     pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last, K_array_ap = lspe_pi( initial_policy=pol_cl,
-        data_x=data_x_ap,data_u=data_u_ap, W=W, psi=psi,
+        data_x=data_x_ap,data_u=data_u_ap,psi=psi,
         model_step=model_step_approx,stage_reward=stage_reward_approx,  # approximate model here
         n_mc=50,
         n_pi_iters=5,
@@ -466,7 +485,7 @@ def q8_9():
     # Run LSPE+PI with CONSTRAINED improvement (0 ≤ q + u ≤ 1)
     pi_lspepi_constr, theta_Q_last_c, eta_hat_last_c, K_array_c = lspe_pi( initial_policy=pol_cl,
         data_x=data_x_ls_c, data_u=data_u_ls_c,
-        W=W, psi=psi,
+        psi=psi,
         model_step=model_step, stage_reward=stage_reward,
         n_mc=50,
         n_pi_iters=5,
@@ -481,7 +500,7 @@ def q8_9():
 
 if __name__ == "__main__":
     d = 14  # length of psi vector
-    W = 1e-4 * np.eye(d + 1)
+    
 
     K_lqr = compute_lqr_gain(model)
     pol_lqr = lambda x: float(K_lqr @ x)
@@ -489,11 +508,31 @@ if __name__ == "__main__":
     policy_list = [(pol_lqr, "LQR Optimal Policy"), 
                    (pol_cl, "Closed-Loop Policy")]
     
-    q8_5()
+
+
+
+
+
+    ### plot Q_exact vs Q_hat_mc
+    plot_Xfn_vs_Yfn(
+        X_function=Q_exact_lqr,
+        # Y_function=lambda x, u: Q_hat_mc(x, u, pol_cl, model_step, stage_reward, eta=0.0, T=50, n_traj=100),
+        Y_function=lambda x, u: Q_hat_mc(x, u, pol_cl, model_step_approx, stage_reward_approx, eta=0.0, T=10, n_traj=1000),
+        n_points=100, 
+        seed=0,
+        x_label=r"$Q_{\mathrm{Exact}}$ (LQR Model)",
+        y_label=r"$\hat{Q}_{\mathrm{MC}}$ (Poisson)"
+    )
+    plt.show()
+
+    
+    # q8_5()
     q8_6()
-    q8_7()
-    q8_8()
-    q8_9()
+    # q8_7()
+    # q8_8()
+    # q8_9()
+
+
 
     
     plt.show()

@@ -1,208 +1,221 @@
+from email import policy
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.linalg import solve_discrete_are
 
+n = 3
+m = 1
+d = (m + n) * (m + n + 1) // 2
+N = 10   # no. of data points collected for each iteration
+N1 = 8  # no. of iterations for policy improvement
 
 W_A = 0.1
 W_U = 0.2
 BETA_U = -0.048
 GAMMA_U = 0.06
 THETA = 0.5
+SIGMA_P = 0.02
 
-S = np.array([[0, 1000, 1000], 
-              [1000, 0, 0], 
-              [1000, 0, 0]])
+Q = np.array([[-(1000 * SIGMA_P)**2, 1000, 1000], 
+                     [1000, 0, 0], 
+                     [1000, 0, 0]]) 
 
-P = 1000 * np.array([GAMMA_U, THETA, THETA])
+R = - (1000 * THETA * SIGMA_P)**2
 
-K_lqr = [-1.11182191,  2.64863317,  2.52792524]
+S = np.array([[1000*GAMMA_U - THETA * ((1000 * SIGMA_P)**2)], 
+                     [1000 * THETA], 
+                     [1000 * THETA]]) 
 
-def generate_trajectories(policy, x0=(0, 0, 0), T=1000):
-    """Generate the state variables x_t and actions u_t for t=0,...,T
-       using the given policy.
+A = np.array([[1, 0, 0],
+              [0, 1 - W_A, 0], 
+              [0, 0, 1 - W_U]])
+B = np.array([[1],
+              [0],
+              [W_U * BETA_U]])
 
-    Args:
-        policy: a function that takes in the current state x_t and returns an action u_t
-        x0 (ndarray): initial state. Defaults to 0.
-        T (int): number of time steps. Defaults to 1000.
-    """
-    x = np.zeros((T+1, 3))  # State variables: q_t, za_t, zu_t
-    u = np.zeros((T))       # Actions
-    x[0] = x0
+Q = -Q
+S = -S
+R = -R
 
-    for t in range(T):
-        u[t] = policy(x[t])
-        x[t+1, 0] = x[t, 0] + u[t] # q_t
-        x[t+1, 1] = (1 - W_A) * x[t, 1]
-        x[t+1, 2] = (1 - W_U) * x[t, 2] + W_U * BETA_U * u[t]
+#### Compute LQR gain
 
-    return x, u
+def compute_lqr_gain(model):
+    F, G, Q, R, S = model
+    # M = solve_ricatti_infinite_horizon(F, G, Q, R, S)
+    # K_opt = optimal_gain(F, G, Q, R, S, M)
 
-def g(q, za, zu, u):
-    """Compute the gross stage reward at each time given state x and action u."""
+    M = solve_discrete_are(F, G, Q, R, e=np.eye(3), s=S)
+    K_lqr = -np.linalg.solve(R + G.T @ M @ G, (G.T @ M @ F + (1*S).T))
 
-    # Formula found by replacing p_t+1 and p_t by their expressions in the given model (see Question 2.3)
-    return 1000 * q * (za + zu + (GAMMA_U * u)) + THETA * u * (za + zu)
+    residual = F.T @ M @ F - (F.T @ M @ G + S) @ np.linalg.inv(R + G.T @ M @ G) @ (G.T @ M @ F + S.T) + Q - M
+    print(f"K_lqr : {K_lqr}  residual norm: {np.linalg.norm(residual, ord='fro')}")
 
-def c(g):
-    return g - (np.pow(g, 2) / 2)
+    # Check closed-loop stability
+    F_cl = F + G @ K_lqr
+    eigenvalues = np.linalg.eigvals(F_cl)
+    print("Stable:", all(np.abs(eigenvalues) < 1))
 
-def reward(x, u):
-    """Compute all the rewards over the trajectory given states x and actions u from time 0 to t."""
-    """returns an array of shape (t,)"""
-    g_t = g(x[:, 0], x[:, 1], x[:, 2], u[:])
-    c_t = c(g_t)
-    return c_t
+    # K_opt = - np.array([[-0.8864, 2.1253, 1.2096]])
 
+    return K_lqr, M
 
-def generate_dataset(sigma_exp=0.1, x0=np.array([1, 1, 1])):
-    policy = lambda x: np.random.normal(K_lqr@x, sigma_exp**2)
-
-    return generate_trajectories(policy, x0)
-
+model = (A, B, Q, R, S)
+K_lqr, M = compute_lqr_gain(model)
+K_lqr = -K_lqr
+K_cl = -np.array([-0.5, 0.5, 0.5])
 
 def psi(x, u):
-    q, za, zu = x[0], x[1], x[2]
-    return np.array([
-        1, q, za, zu, u,
-        np.power(q, 2), np.power(za, 2), np.power(zu, 2), np.power(u, 2),
-        q*za, q*zu, q*u, za*zu, za*u, zu*u
+    x1, x2, x3 = x
+    psi = np.array([
+        x1**2,
+        2*x1*x2,
+        2*x1*x3,
+        2*x1*u,
+        x2**2,
+        2*x2*x3,
+        2*x2*u,
+        x3**2,
+        2*x3*u,
+        u**2
     ])
+    return psi
 
-def lstd(data_x, data_u, W, policy, psi, c, d):
-    N = data_x.shape[0] - 1
-    gamma = np.zeros(N)
-    Gamma = np.zeros((d, N))
+def lspd_lqr_implementation(K):
+    x0 = np.array([1, 1, 1])
+    var = 0.1
+    policy = lambda x: np.random.normal(-K @ x, var**2)
+
+    x = np.zeros((N+1, 3))
+    u = np.zeros(N)
+    x[0] = x0
+    for t in range(N):
+        u[t] = policy(x[t])
+        x[t+1] = A @ x[t] + B.flatten() * u[t]
+
+    psi0 = np.zeros((d, N))
+    psi1 = np.zeros((d, N))
+    costs = np.zeros(N)
 
     for k in range(N):
-        x_k, u_k = data_x[k], data_u[k]
-        x_k1 = data_x[k+1]
-        gamma[k] = c(g(x_k[0], x_k[1], x_k[2], u_k))
-        Gamma[:, k] = psi(x_k, u_k) - psi(x_k1, policy(x_k1))
+        psi0[:, k] = psi(x[k], u[k])
+        psi1[:, k] = psi(x[k+1], -K @ x[k+1])
+        costs[k] = (x[k].T @ Q @ x[k] + u[k].T * R * u[k] + 2 * x[k].T @ S * u[k])[0]
 
+    Upsilon = psi0 - psi1
+
+    phi_bar = np.zeros(d)
     R_N = np.zeros((d, d))
-    psi_bar = np.zeros(d)
+    for i in range(N):
+        phi_bar += costs[i] * Upsilon[:, i]
+        R_N += np.outer(Upsilon[:, i], Upsilon[:, i])
 
-    for k in range(N):
-        R_N += Gamma[:, k] @ Gamma[:, k].T
-        psi_bar += Gamma[:, k] * gamma[k]
-
+    phi_bar /= N
     R_N /= N
-    psi_bar /= N
 
-    return np.linalg.solve(W/N + R_N, psi_bar)
+    vecH = np.linalg.inv(R_N) @ phi_bar
+
+    return vecH
+    
+
+def lspi():
+    K = np.zeros((3, N1+1))
+    K[:, 0] = K_cl  # Initial policy
+    for it in range(1, N1+1):
+        print(f"Iteration {it+1}/{N1}, current policy K: {K[:, it-1]}")
+
+        vecH = lspd_lqr_implementation(K[:, it-1])
+
+        # Policy update
+        K[:, it] = np.array([vecH[3], vecH[6], vecH[8]]) / vecH[9]  # H_ux / H_uu
+
+    return K
+
+def Q_hat(x, u):
 
 
-def Q_hat(x, u, policy):
     """Compute an approximation of Q by simulating a long trajectory starting at (x, u)
 
     Args:
         x (ndarray): initial condition
         u (ndarray): first control input
     """
+    from model import generate_trajectories
+
     total_reward = 0
 
     # Apply first input to the initial condition
-    first_input_policy = lambda x: u
-    next_state = generate_trajectories(first_input_policy, x, T=1)[0][-1]
+    next_state = A @ x + B.flatten() * u
+    total_reward += (x.T @ Q @ x + u.T * R * u + 2 * x.T @ S * u)[0]
 
-    total_reward += c(g(next_state[0], next_state[1], next_state[2], u))
-
-    states, inputs = generate_trajectories(policy, next_state, T=1000)
-
-    total_reward += np.sum(reward(states[:-1], inputs))
+    policy = lambda x: -K_cl @ x
+    states, inputs, _ = generate_trajectories(policy, next_state, T=1000)
     
+    for t in range(len(inputs)):
+        x_t = states[t]
+        u_t = inputs[t]
+        total_reward += (x_t.T @ Q @ x_t + u_t.T * R * u_t + 2 * x_t.T @ S * u_t)[0]
+
     return total_reward
 
+def plot_lspd_vs_Q_hat():
+    # Generate test data
+    x_0 = np.array([0.8, 1, 0.5])
+    var = 0.01
+    N_test = 100
+    policy = lambda x: np.random.normal(-K_cl @ x, var**2)
 
+    x_test = np.zeros((N_test+1, 3))
+    u_test = np.zeros(N_test)
+    x_test[0] = x_0
+    for t in range(N_test):
+        u_test[t] = policy(x_test[t])
+        x_test[t+1] = A @ x_test[t] + B.flatten() * u_test[t]
 
+    theta = lspd_lqr_implementation(K_cl)
+    Q_lspd_eval = np.zeros(N_test)
+    Q_hat_eval = np.zeros(N_test)
 
-d=15
-policy = lambda x: K_lqr@x
+    for k in range(N_test):
+        Q_lspd_eval[k] = theta @ psi(x_test[k], u_test[k])
+        Q_hat_eval[k] = Q_hat(x_test[k], u_test[k])
 
+    ## Filter evaluation where values are too large
+    mask = (np.abs(Q_hat_eval) < 1e3) & (np.abs(Q_lspd_eval) < 1e3)
+    Q_hat_eval = Q_hat_eval[mask]
+    Q_lspd_eval = Q_lspd_eval[mask]
 
-def plot_lstd_vs_approx(x, u, sigma_exp):
-    data_x, data_u = generate_dataset(sigma_exp)
-    theta = lstd(data_x, data_u, np.eye(d), policy, psi, c, d)
-
-    Q_lstd = []
-    Q_empirical = []
-
-    for i in range(data_x.shape[0]-1):
-        x_i = data_x[i]
-        u_i = data_u[i]
-
-        Q_lstd.append(theta @ psi(x_i, u_i))
-        Q_empirical.append(Q_hat(x_i, u_i, policy))
-
-    # Remove outliers for better visualization
-    Q_lstd = np.array(Q_lstd)
-    Q_empirical = np.array(Q_empirical)
-    mask = (Q_empirical > np.percentile(Q_empirical, 5)) & (Q_empirical < np.percentile(Q_empirical, 95))
-    Q_lstd = Q_lstd[mask]
-    Q_empirical = Q_empirical[mask]
-
-    plt.scatter(Q_empirical, Q_lstd)
-    plt.xlabel(r'$\hat{Q}$')
-    plt.ylabel(r"$Q^{\theta}$")
-    plt.title(r"$Q^{\theta}$ vs. $\hat{Q}$")
-    plt.grid(alpha=0.7)
-    plt.savefig('part3/figures/q64_lstd_vs_approx.png', dpi=600)
+    plt.figure(figsize=(8, 6))
+    plt.scatter(Q_lspd_eval, Q_hat_eval, alpha=0.5)
+    # plt.xscale("symlog")
+    # plt.yscale("symlog")
+    plt.xlabel(r"$Q^{\theta}$")
+    plt.ylabel(r"$\hat{Q}$")
+    plt.title("Comparison of Q estimates")
+    plt.plot([min(Q_lspd_eval), max(Q_lspd_eval)], [min(Q_lspd_eval), max(Q_lspd_eval)], 'r--', label="y=x")
+    plt.grid(alpha=0.3)
+    plt.legend()
+    # plt.savefig("part3/figures/q64_lspd_vs_qhat.png", dpi=300)
     plt.show()
 
+def plot_policy_convergence():
+    plt.figure(figsize=(8, 6))
+    K = lspi()
 
-def plot_theta_vs_sigma_exp(x0=np.array([1, 1, 1])):
-    """Plot the norm of theta vs the exploration noise to generate the dataset
-    """
-
-    N = 50
-    sigma_exps = np.linspace(0.01, 1, N)
-    theta_norms = np.zeros(N)
-
-    for i in range(N):
-        sigma_exp = sigma_exps[i]
-        data_x, data_u = generate_dataset(sigma_exp, x0)
-        theta = lstd(data_x, data_u, np.eye(d), policy, psi, c, d)
-        theta_norms[i] = np.linalg.norm(theta)
-
-    plt.plot(sigma_exps, theta_norms)
-    plt.xlabel(r'$\sigma_{exp}$')
-    plt.ylabel(r'$\|\theta\|$')
-    plt.title(r'Norm of $\theta$ vs. Exploration Noise $\sigma_{exp}$')
+    # plot difference in norm between Klqr and K at each iteration
+    norms = [np.linalg.norm(K[:, i] - K_lqr.flatten()) for i in range(K.shape[1])]
+    plt.plot(range(K.shape[1]), norms, marker='o')
     plt.yscale("log")
-    plt.grid(alpha=0.7)
-    plt.savefig('part3/figures/q64_theta_vs_sigma_exp.png', dpi=600)
-    plt.show()
-
-def plot_theta_vs_x0():
-    """Plot the norm of theta vs the norm of the initial condition to generate the dataset
-    """
-
-    sigma_exp = .1
-    N = 500
-    init_condition_norms = np.zeros(N)
-    theta_norms = np.zeros(N)
-
-    for i in range(N):
-        x0 = np.random.uniform(np.array([0, -10, -10]), np.array([1, 10, 10]))
-        data_x, data_u = generate_dataset(sigma_exp, x0)
-        theta = lstd(data_x, data_u, np.eye(d), policy, psi, c, d)
-
-        init_condition_norms[i] = np.linalg.norm(x0)
-        theta_norms[i] = np.linalg.norm(theta)
-
-    plt.scatter(init_condition_norms, theta_norms, s=5)
-    plt.xlabel(r'$\|x_0\|$')
-    plt.ylabel(r'$\|\theta\|$')
-    plt.title(r'Norm of $\theta$ vs. Norm of $x_0$')
-    plt.yscale("log")
-    plt.grid(alpha=0.7)
-    plt.savefig('part3/figures/q64_theta_vs_x0.png', dpi=600)
+    plt.xlabel("Iteration")
+    plt.ylabel(r"$\|K_{LQR} - K_i\|$")
+    plt.title("Convergence of Learned Policy to LQR Policy")
+    plt.grid(alpha=0.3)
+    plt.savefig("part3/figures/q64_policy_convergence.png", dpi=300)
     plt.show()
 
 
-
-
-
-plot_lstd_vs_approx(np.array([0, 1, 1]), 1, 0.1)
-plot_theta_vs_x0()
-plot_theta_vs_sigma_exp()
+print("LQR Gain K_lqr:", K_lqr)
+# if __name__ == "__main__":
+#     K_lspi = lspi()
+#     print("Learned policy K_lspi:", K_lspi[:, -1])
+#     # plot_lspd_vs_Q_hat()
+#     plot_policy_convergence()
