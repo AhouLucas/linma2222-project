@@ -256,11 +256,11 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
 
 #answer(title:"Answer (cont.)")[
   #figure(
-    image("../figures/Q_comparison_Q_mathrmLSPE(x,u)_vs_hat_Q_mathrmMC(x,u)_(Poisson).svg", width: 50%),
+    image("../../fig_in_git/comparison_Comparison_of_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 50%),
     caption: [Experimental $Q$-function obtained via Monte-Carlo approximation against $Q_"LSPE"$]
   )<fig:q85_QLSPE>
 
-  On @fig:q85_QLSPE, we see that the $Q_"LSPE"$ approximates the estimation pretty well. We notice a slight deviation from the identity line but the approximation is still acceptable.
+  On @fig:q85_QLSPE, we see that the $Q_"LSPE"$ approximates the estimation almost perfectly, which indicates that the method works correctly.
 ]
 
 
@@ -270,11 +270,11 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
   Again, we ran the LSPE algorithm, this time on the LQR approximate model from section 4. We use the same choice of basis as the last question.
 
   #figure(
-    image("../figures/Q_comparison_Q_mathrmLSPE(x,u)_(Approx_Model)_vs_Q_mathrmExact(x,u)_(LQR_Model).svg", width: 50%),
+    image("../../fig_in_git/comparison_Comparison_of_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model)_.svg", width: 50%),
     caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
   )<fig:q86_QLSPE>
 
-  On @fig:q86_QLSPE, we can see that the $Q_"LSPE"$ function is a bit off from the exact $Q$-function. However, it can still be considered a relatively reasonable approximation. Though there might be some choices of implementation that can improve this approximation, such as searching for a better basis for the $Q$-function for example.
+  On @fig:q86_QLSPE, we can see, again, that the obtained $Q$-function approximation approximates the exact $Q$-function of the approximate LQR model. 
 ]
 
 #pagebreak()
@@ -286,9 +286,21 @@ For the setting of Question 8.5, implement the LSPE+PI algorithm, using $pi_"cl"
 #answer(title: "Answer")[
   As stated in the assignment, we took the LSPE algorithm implemented in Question 8.5 and added a policy improvement step to get a LSPE+PI algorithm. 
 
-  *TODO*
-]
+  #figure(
+    image("../../fig_in_git/policy_comparison_cumulative_distribution_Q8_7_reward_distribution.svg", width: 50%),
+    caption: [Cumulative empirical distribution of the average rewards for the different policies]
+  )<fig:q87_cum>
 
+  On @fig:q87_cum, we can see that the $pi_"lspepi"$ policy performs exactly like the LQR one. This indicates that it performs quite well. We also see that it performs well better than the initial $pi_"cl"$, which is expected for a policy _improvement_ algorithm. Below is a plot of the empirical distribution of the average rewards to better see the performance of those policies:
+
+  #figure(
+    image("../../fig_in_git/policy_comparison_histogram_Q8_7_reward_distribution.svg", width: 50%),
+    caption: [Empirical distribution of the average rewards for the different policies]
+  )<fig:q87_dist>
+
+  Again, we see that the $pi_"lspepi"$ policy performs better than $pi_"cl"$.
+]
+#pagebreak()
 == Question 8.8
 
 For the setting of Question 8.6, implement the LSPE+PI algorithm, using $pi_"cl"$ as initial policy. Demonstrate the convergence of the gain sequence $K_k$ to $K_"lqr"$ (where $K_"lqr"$ is the gain associated to $pi_"lqr"$) by plotting the evolution of the error norm with $k$.
@@ -297,15 +309,21 @@ For the setting of Question 8.6, implement the LSPE+PI algorithm, using $pi_"cl"
   Again, we ran LSPE+PI but on the LQR approximate model starting with $pi_"cl"$ as an initial policy. As stated, we plotted the evolution of the error between $K_k$ and $K_"lqr"$. 
 
    #figure(
-    image("../figures/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 50%),
+    image("../../fig_in_git/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 50%),
     caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
   )<fig:q88_convergence>
 
-  Here on @fig:q88_convergence, we see that after a few iterations, the LSPE policy converges to the optimal $K_"lqr"$ one. Altough there is a small error even after convergences, the error is small enough for this approximated policy to be considered a good approximation.
+  Here on @fig:q88_convergence, we see that after only 2 iterations, the LSPE policy converges to the optimal $K_"lqr"$ one. Altough there is a small error even after convergences, the error is small enough for this approximated policy to be considered a good approximation. 
 ]
 
 == Question 8.9
-
+Repeat Question 8.7 (i.e., using the true reward model of the system) but with the constrained policy improvement.
 #answer(title: "Answer")[
-  *TODO*
+  The policies may violate the constraint $q in [0,1]$, we thus solve the following constrained optimization problem during the policy improvement step:
+
+  $
+    pi(x) = arg max_u Q^(theta)(x, u) quad "s.t." quad 0 <= mat(1, 0, 0)x + u <= 1
+  $
+
+
 ]
