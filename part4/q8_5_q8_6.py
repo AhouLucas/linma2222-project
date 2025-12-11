@@ -398,8 +398,8 @@ def q8_7_d4():
     print("Final eta_hat (Q8.7) =", eta_hat_last)
     ##### COMPARE POLICIES ######
 
-    policy_list.append((pi_lspepi, "LSPE+PI (Unconstrained, True System)"))
-    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution", T=1000, n_traj=100)
+    policy_list.append((pi_lspepi, "LSPE+PI (Unconstrained, True System, psi d4)"))
+    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution_d4", T=1000, n_traj=100)
 
 
 def q8_7():
@@ -523,8 +523,9 @@ if __name__ == "__main__":
     # q8_5()
     # check_Q_exact_vs_Q_hat()
     # q8_6()
-    # q8_7()
-    q8_7_d4()
+    
+    q8_7()
+    # q8_7_d4()
 
 
     # q8_8()
