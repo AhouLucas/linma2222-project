@@ -31,7 +31,7 @@ P = np.array([[1000*GAMMA_U - THETA * ((1000 * SIGMA_P)**2)],
 
 R = np.array([[- (1000 * THETA * SIGMA_P)**2]])
 
-# min c(x,u) = x.T Q x + u.T R u + 2 x.T S u = - 0.5 r(x,u)
+# min c(x,u) = x.T Q x + u.T R u + 2 x.T S u = - r(x,u)
 Q = -0.5 * S
 S = -0.5 * P
 R = -0.5 * R
@@ -117,9 +117,8 @@ def stage_reward_approx(x_t, u_t, xi_p_t=None):
     F, G, H, E, D, Q, R, S = model
     x = np.asarray(x_t, dtype=float).reshape(-1)     # (nx,)
     u = np.asarray(u_t, dtype=float).reshape(-1)     # (nu,)
-    # if xi_p_t is None: xi_p_t = np.random.normal(0, 1)
-    # maybe should add noise term here?
 
+    # this is the expected reward with noise
     r = - (x.T @ Q @ x + 2 * x.T @ S @ u + u.T @ R @ u)  # maximize reward
     return r
 
@@ -129,6 +128,29 @@ def get_lqr_policy():
     K_lqr = compute_lqr_gain(model)
     policy_lqr = lambda x: float(K_lqr @ x)
     return policy_lqr
+
+
+if __name__ == "__main__":
+    K_lqr = compute_lqr_gain(model)
+    print("LQR Gain K_lqr:", K_lqr)
+
+    from plotting import plot_Xfn_vs_Yfn
+    from model import model_step, stage_reward, c_quad, g
+
+    # plot_Xfn_vs_Yfn(X_function=lambda x, u: float(stage_reward(x, u, xi_p_t=np.zeros(1,))),
+    #                  Y_function=lambda x, u: float(stage_reward_approx(x, u, xi_p_t=np.zeros(1,))),
+    #                  n_points=1000,
+    #                  title="Stage Reward of ", x_label="True stage reward", y_label="Approximate stage reward",
+    # )
+
+
+    plot_Xfn_vs_Yfn(X_function=lambda x, u: float(np.mean( \
+        [c_quad(g(x[0], x[1], x[2], u)) for _ in range(1000)])),
+                     Y_function=lambda x, u: float(stage_reward_approx(x, u)),
+                     n_points=1000,
+                     title="Stage Reward of ", x_label="quadratic stage reward", y_label="Approximate stage reward",
+    )
+
 
 
 

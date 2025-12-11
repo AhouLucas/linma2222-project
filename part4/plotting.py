@@ -358,3 +358,70 @@ def graph_K_evolution(name_K_array, K_lqr, indexes=None, K_lqr_name="K_{lqr}", t
     plt.grid()
     plt.legend()
     plt.savefig(f"figures/convergence_{title_suffix.replace(' ', '_')}.svg", format='svg')
+
+
+
+def plot_Xfn_vs_Yfn(X_function, Y_function, data_x=None, data_u=None, n_points=100,seed=0, title="Comparison of ", x_label=r"X", y_label=r"Y"):
+
+    rng = np.random.default_rng(seed)
+
+    if data_x is None or data_u is None:
+        from model import SIGMA_A, BETA_U
+        scale = 0.01
+        # around the origin
+        ### just take random (x,u) pairs
+        data_x = rng.normal(0, 1, size=(1000, 3)) * np.array([1.0, SIGMA_A, BETA_U]) * scale
+        data_u = rng.normal(0, 1, size=(1000,)) * 0.1 * scale
+
+    N = min(data_x.shape[0], data_u.shape[0])
+    idxs = rng.choice(N, size=min(n_points, N), replace=False)
+
+    X_vals = []
+    Y_vals  = []
+    xu_sizes    = []
+
+    for k in idxs:
+        x_k = data_x[k]
+        u_k = data_u[k]
+
+        X_vals.append(X_function(x_k, u_k))
+        Y_vals.append(Y_function(x_k, u_k))
+        xu_sizes.append(np.linalg.norm(np.concatenate([x_k.reshape(-1), np.array([u_k])])))
+
+    X_vals = np.array(X_vals)
+    Y_vals  = np.array(Y_vals)
+    xu_sizes    = np.array(xu_sizes)
+    
+    offset = np.mean(Y_vals - X_vals)
+    print(f"Poisson Q offset applied: {offset:.4f}")
+
+    X_vals += offset
+
+
+    plt.figure(figsize=(6, 6))
+    ### Polyfit
+    coeffs = np.polyfit(X_vals, Y_vals, deg=1)
+    poly_fit = np.poly1d(coeffs)
+    x_fit = np.linspace(X_vals.min(), X_vals.max(), 100)
+    y_fit = poly_fit(x_fit)
+    plt.plot(x_fit, y_fit, color='red', linestyle='-', label=f"Fit: y={coeffs[0]:.2f}x + {coeffs[1]:.2f}")
+    print(f"Polyfit : y = {coeffs[0]:.4f} x + {coeffs[1]:.4f}")
+    
+    # plt.scatter(Q_lspe_vals, Q_hat_vals, s=15, alpha=0.7)
+    # color by xu_sizes
+    scatter = plt.scatter(X_vals, Y_vals, c=xu_sizes, s=30, cmap='viridis', alpha=0.7)
+    cbar = plt.colorbar(scatter)
+
+    lo = min(X_vals.min(), Y_vals.min())
+    hi = max(X_vals.max(), Y_vals.max())
+    plt.plot([lo, hi], [lo, hi], linestyle="--")
+
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(f"{title} {x_label} vs {y_label}")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.legend()
+    labels = (title + x_label + " vs " + y_label).replace("$", "").replace("{", "").replace("}", "").replace("\\", "").replace(" ", "_")
+    plt.savefig(f'figures/comparison_{labels}.svg', format='svg')
+

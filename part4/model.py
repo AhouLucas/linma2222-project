@@ -105,45 +105,8 @@ def stage_reward(x_t, u_t, xi_p_t=None):
 def average_reward(x, u, xi_p, t):
     return np.nanmean(reward(x, u, xi_p, t))
 
-# def generate_trajectories(policy, x0=(0, 0, 0), T=1000, N=1, xi_a=None, xi_p=None, show_progress=False):
-#     """Generate the state variables x_t and actions u_t for t=0,...,T
-#        using the given policy.
 
-#     Args:
-#         policy: a function that takes in the current state x_t and returns an action u_t
-#         x0 (ndarray): initial state. Defaults to 0.
-#         T (int): number of time steps. Defaults to 1000.
-#     """
-#     x = np.zeros((T+1, 3, N))  # State variables: q_t, za_t, zu_t
-#     u = np.zeros((T, N))       # Actions
-
-#     # if x0 is an np array
-#     # print(x0)
-#     # if isinstance(x0, np.ndarray):
-#     #     x[0] = x0.reshape(3, 1)
-#     # # if a strin
-#     if type(x0) == str and x0 == "random":
-#         # x[0, 0] = rng.normal(0, 0.1, size=(N,))  # q_0
-#         # x[0, 1] = rng.normal(0, 0.001, size=(N,))   # za_0
-#         # x[0, 2] = rng.normal(0, 0.001, size=(N,))   # zu_0
-#         x[0] = rng.normal(0, 1, size=(3, N)) * np.array([[1], [SIGMA_A], [BETA_U]])
-#     # if x0 is a function, call it to get initial state
-#     elif callable(x0):
-#         for i in range(N):
-#             x[0, :, i] = x0()
-#     else:
-#         x[0] = np.array(x0).reshape(3, 1)
-
-
-
-#     if xi_a is None:  xi_a = rng.normal(0, 1, size=(T, N))
-#     if xi_p is None:  xi_p = rng.normal(0, 1, size=(T, N))
-
-#     # tqdm that goes away when done : 
-#     for t in range(T) if not show_progress else tqdm(range(T), desc="Generating trajectories"):
-#         u[t] = policy(x[t])
-#         x[t+1, 0] = x[t, 0] + u[t] # q_t
-#         x[t+1, 1] = (1 - W_A) * x[t, 1] + W_A * SIGMA_A * xi_a[t]  # za_t
-#         x[t+1, 2] = (1 - W_U) * x[t, 2] + W_U * BETA_U * u[t]  # zu_t
-
-#     return x, u, xi_p
+def get_avg_reward(policy, T=1000, N=10):
+    x, u, xi_p = generate_trajectories(policy, T=T, N=N)
+    avg_r = average_reward(x, u, xi_p, T)
+    return avg_r
