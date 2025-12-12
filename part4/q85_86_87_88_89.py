@@ -472,7 +472,7 @@ def q8_5():
     theta_Q, eta_hat = lspe(data_x, data_u,
         policy=pol_cl,
         psi=psi_fn,
-        model_step=model_step,n_mc=50,
+        model_step=model_step,n_mc=30,
         # model_step=model_step_no_noise,n_mc=1,
         stage_reward=stage_reward,
         lam=1e-6,
@@ -650,7 +650,7 @@ def q8_8(): # approx model,
         # psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
         psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled,
         model_step=model_step_approx,stage_reward=stage_reward_approx,  # approximate model here
-        n_mc=50,
+        n_mc=30,
         n_pi_iters=5,
         lam=1e-6,
         constrained=False,    # Q8.8 uses UNCONSTRAINED version
