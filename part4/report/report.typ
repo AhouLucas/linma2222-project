@@ -260,11 +260,14 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
     caption: [Experimental $Q$-function obtained via Monte-Carlo approximation against $Q_"LSPE"$]
   )<fig:q85_QLSPE>
 
-  On @fig:q85_QLSPE, we see that the $Q_"LSPE"$ approximates the estimation almost perfectly, which indicates that the method works correctly.
+  On @fig:q85_QLSPE, we see that the $Q_"LSPE"$ approximates the estimation quite well, though there is a slight deviation with the identity line. 
 ]
 
+#pagebreak()
 
 == Question 8.6
+
+Consider the LQR approximate model obtained in Section 4, i.e., with objective (7). For this model repeat Question 8.5 (but for the comparison, use the exact Q-function, which you can compute analytically).
 
 #answer(title:"Answer")[
   Again, we ran the LSPE algorithm, this time on the LQR approximate model from section 4. We use the same choice of basis as the last question.
@@ -274,7 +277,7 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
     caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
   )<fig:q86_QLSPE>
 
-  On @fig:q86_QLSPE, we can see, again, that the obtained $Q$-function approximation approximates the exact $Q$-function of the approximate LQR model. 
+  On @fig:q86_QLSPE, we can see that the obtained $Q$-function approximation approximates perfectly the exact $Q$-function of the approximate LQR model. 
 ]
 
 #pagebreak()
@@ -284,17 +287,17 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
 For the setting of Question 8.5, implement the LSPE+PI algorithm, using $pi_"cl"$ as initial policy. Denote the resulting policy by $pi_"lspepi"$. Repeat Question 3.2 for $pi_"lspepi"$. Compare the averaged reward with that of the policies $pi_"cl"$ and $pi_"lqr"$.
 
 #answer(title: "Answer")[
-  As stated in the assignment, we took the LSPE algorithm implemented in Question 8.5 and added a policy improvement step to get a LSPE+PI algorithm. 
+  As stated in the assignment, we took the LSPE algorithm implemented in Question 8.5 and added a policy improvement step to get the LSPE+PI algorithm. 
 
   #figure(
-    image("../../fig_in_git/policy_comparison_cumulative_distribution_Q8_7_reward_distribution.svg", width: 50%),
+    image("../../fig_in_git/policy_comparison_cumulative_distribution_Q8_7.svg", width: 50%),
     caption: [Cumulative empirical distribution of the average rewards for the different policies]
   )<fig:q87_cum>
 
   On @fig:q87_cum, we can see that the $pi_"lspepi"$ policy performs exactly like the LQR one. This indicates that it performs quite well. We also see that it performs well better than the initial $pi_"cl"$, which is expected for a policy _improvement_ algorithm. Below is a plot of the empirical distribution of the average rewards to better see the performance of those policies:
 
   #figure(
-    image("../../fig_in_git/policy_comparison_histogram_Q8_7_reward_distribution.svg", width: 50%),
+    image("../../fig_in_git/policy_comparison_histogram_Q8_7.svg", width: 50%),
     caption: [Empirical distribution of the average rewards for the different policies]
   )<fig:q87_dist>
 
@@ -310,11 +313,22 @@ For the setting of Question 8.6, implement the LSPE+PI algorithm, using $pi_"cl"
 
    #figure(
     image("../../fig_in_git/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 50%),
-    caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
+    caption: [Convergence of $K_k$ to $K_"lqr"$]
   )<fig:q88_convergence>
 
-  Here on @fig:q88_convergence, we see that after only 2 iterations, the LSPE policy converges to the optimal $K_"lqr"$ one. Altough there is a small error even after convergences, the error is small enough for this approximated policy to be considered a good approximation. 
+  Here on @fig:q88_convergence, we see that after only 2 iterations, the LSPE policy converges to the optimal $K_"lqr"$ one. Altough there is a small error even after convergences, the error is small enough for this approximated policy to be considered a good approximation.
+
+  As a comparison with the previous policies, we also plotted the distributions of the average reward:
+
+  #figure(
+    image("../../fig_in_git/policy_comparison_histogram_Q8_8.svg", width: 50%),
+    caption: [Empirical distribution of the average rewards for the different policies]
+  )<fig:q88_dist>
+  
+  We see that this policy performs exactly like the LQR optimal policy as well as the $pi_"lspepi"$ policy.
 ]
+
+#pagebreak()
 
 == Question 8.9
 Repeat Question 8.7 (i.e., using the true reward model of the system) but with the constrained policy improvement.
@@ -325,5 +339,19 @@ Repeat Question 8.7 (i.e., using the true reward model of the system) but with t
     pi(x) = arg max_u Q^(theta)(x, u) quad "s.t." quad 0 <= mat(1, 0, 0)x + u <= 1
   $
 
+  After implementing that, we compared the average reward distributions of all the previous policies:
 
+    #figure(
+    image("../../fig_in_git/policy_comparison_histogram_Q8_9.svg", width: 50%),
+    caption: [Empirical distribution of the average rewards for the different policies]
+  )<fig:q89_dist>
+
+  On @fig:q89_dist, we see that the constrained policy is actually worse than the other ones. To get a fair comparison, we will plot them all again but now with the constraint applied:
+
+  #figure(
+    image("../../fig_in_git/policy_comparison_histogram_Q8_9_constrained.svg", width: 50%),
+    caption: [Empirical distribution of the average rewards for the different constrained policies]
+  )<fig:q89_constrained>
+
+  We now see that the policy we obtained in this question (purple distribution) is better than the other ones after we applied the constrained. 
 ]
