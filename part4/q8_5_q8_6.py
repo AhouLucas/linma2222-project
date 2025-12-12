@@ -53,6 +53,15 @@ def generate_dataset(sigma_exp=0.1, x0=np.array([0.1, 0.01, 0.01]), T=1000, N=1,
 
     return x, u, xi_p
 
+# def psi_scaled(x, u):
+def scale_psi(psi):
+    # Dataset stats: x mean=[ 1.44324371e-04  1.33150363e-05 -8.29403236e-08], x std=[0.1151327  0.00412507 0.00106323], 
+    # u mean=-1.1500616320874343e-07, u std=0.11551828425001691
+    # return psi(x / np.array([0.11, 0.0041, 0.0011]), u / 0.11)
+    sx = np.array([0.1, 0.0041, 0.0011], dtype=float)
+    su = 0.1
+    return lambda x, u: psi(x / sx, u / su)
+    # return psi(x / sx, u / su)
 
 def psi(x, u):
     # Make sure x is a flat array of scalars
@@ -60,7 +69,6 @@ def psi(x, u):
     q  = float(x[0])
     za = float(x[1])
     zu = float(x[2])
-
     u = float(np.asarray(u).reshape(-1)[0])
 
     return np.array([
@@ -69,6 +77,29 @@ def psi(x, u):
         q**2, za**2, zu**2, u**2,
         q*za, q*zu, q*u, za*zu, za*u, zu*u
     ], dtype=float)
+
+
+
+def psi_plus(x, u):
+    # Make sure x is a flat array of scalars
+    x = np.asarray(x).reshape(-1)
+    q  = float(x[0]) / 0.11
+    za = float(x[1]) / 0.0041
+    zu = float(x[2]) / 0.0011
+    u = float(np.asarray(u).reshape(-1)[0]) / 0.11
+
+    return np.array([
+        # 1.0, # cannot have a const for poisson equation
+        q, za, zu, u,
+        q**2, za**2, zu**2, u**2,
+        q*za, q*zu, q*u, za*zu, za*u, zu*u,
+        # just add cubic terms
+        q**3, za**3, zu**3, u**3,
+        q*za*zu, q*za*u, q*zu*u, za*zu*u,
+        q**2 * za, q**2 * zu, q**2 * u,
+
+    ], dtype=float)
+
 
 
 def psi_d4(x, u):
@@ -104,7 +135,7 @@ def extract_K_from_theta(theta_Q): #### DEPENDING ON PSI DEFINITION
 
 
 
-def lspe(data_x, data_u, policy, psi, model_step, stage_reward, n_mc=20):
+def lspe(data_x, data_u, policy, psi, model_step, stage_reward, n_mc=20, lam=1e-4):
     N = min(data_x.shape[0], data_u.shape[0])
 
     # Infer feature dimension from first sample
@@ -129,11 +160,26 @@ def lspe(data_x, data_u, policy, psi, model_step, stage_reward, n_mc=20):
 
         A += np.outer(phi_k, phi_k) # A +-= E[φ φ^T]
         b -= phi_k * r_bar_k        # b +-= -E[φ r_bar]
+        # b += phi_k * r_bar_k        # b +-= -E[φ r_bar]
 
     A /= N
     b /= N
 
-    A_reg = A + (1e-3 * np.eye(d + 1)) / N # regularization for stability
+    # regularization for stability
+    # A_reg = A + (1e-3 * np.eye(d + 1)) / N 
+
+    evals = np.linalg.eigvalsh(A)
+    max_eig = max(evals[-1], 1e-12)  # guard against zero
+    min_eig = max(evals[0], 1e-16)
+    scale = np.sqrt(max_eig * min_eig)
+
+    # A_reg = A + (scale * np.eye(d_theta))  # relative regularization
+    A_reg = A + lam * np.eye(d_theta)
+    print(f"[LSPE] eig(A): min={evals[0]:.3e}, max={evals[-1]:.3e}  {evals=} | scale={scale:.3e}")
+
+    # print max x and u
+
+    # print(f"reg matrix norm :{ np.linalg.norm((1e-8 * np.eye(d_theta))) } vs A norm: {np.linalg.norm(A)} vs max_eig: {max_eig} vs {np.linalg.norm(1e-3 * np.eye(d_theta) / N)} vs {np.linalg.norm(1e-8 * max_eig * np.eye(d_theta))}")
 
     theta = np.linalg.solve(A_reg, b)
 
@@ -169,7 +215,7 @@ def Q_hat_mc(x, u, policy, model_step, stage_reward, eta=0.0, T=1000, n_traj=20)
 
 # --- load approximate LQR model matrices ---
 F, G, H, E, D, Qc, Rc, Sc = model  # adjust unpacking if your model() returns different
-print(f"{Qc=}, {Rc=}, {Sc=}")
+# print(f"{Qc=}, {Rc=}, {Sc=}")
 K = K_cl.reshape(1, -1)                # shape (1, nx) for matrix products
 # Closed-loop matrix A = F + G K
 A = F + G @ K                          # F: (nx,nx), G: (nx,1), K: (1,nx) -> A: (nx,nx)
@@ -220,6 +266,7 @@ def Q_exact_lqr(x, u):
 
 def greedy_policy_from_theta_d2(theta_Q, _psi, constrained=False):
     assert _psi == psi, "This function assumes a specific psi definition."
+
     θ = theta_Q
 
     def policy(x):
@@ -233,9 +280,44 @@ def greedy_policy_from_theta_d2(theta_Q, _psi, constrained=False):
         if a < 0:
             u_star = -b / (2*a)
         else:
-            # convex or flat: max achieved at boundaries
             u_star = 0.0  # or choose a boundary, but 0 is fine
+            print("Warning: non-concave Q-function in u; using u=0.0")
             
+        if constrained:
+            u_min = -q
+            u_max = 1.0 - q
+            u_star = np.clip(u_star, u_min, u_max)
+        return float(u_star)
+
+    return policy
+
+
+def greedy_policy_from_theta_d2_scaled(theta_Q, _psi, constrained=False):
+    # assert _psi == psi_scaled, "This function assumes a specific psi definition."
+
+    θ = theta_Q
+    sx = np.array([0.1, 0.0041, 0.0011], dtype=float)
+    su = 0.1
+
+    def policy(x):
+        q, za, zu = np.asarray(x).reshape(-1)[:3]
+
+        # scaled versions (same constants as in psi_scaled)
+        q_s, za_s, zu_s = x[:3] / sx
+        
+        a = theta_Q[7]  # coeff of u_s^2
+        b = theta_Q[3] + theta_Q[10]*q_s + theta_Q[12]*za_s + theta_Q[13]*zu_s  # linear in u_s
+
+
+        # If a < 0 → parabola opens downward → unique max
+        if a < 0:
+            u_star = -b / (2.0 * a)
+        else:
+            u_star = 0.0  # or choose a boundary, but 0 is fine
+            print("Warning: non-concave Q-function in u; using u=0.0")
+        
+        u_star = u_star * su  # rescale back to original u
+
         if constrained:
             u_min = -q
             u_max = 1.0 - q
@@ -274,6 +356,7 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
             sigma_exp=0.1,
             T_data=200,
             burn_in=50,
+            lam=1e-4,
             N_traj=100,):
     
     policy = initial_policy
@@ -283,7 +366,12 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
 
     for k in range(n_pi_iters):
         print(f"\n=== LSPE+PI iteration {k} ===")
-        data_x, data_u, xi_p = generate_dataset(sigma_exp=sigma_exp,T=T_data,burn_in=burn_in,N=N_traj,model_step_fn=model_step,base_policy=policy)
+        x0 = lambda: np.random.normal(0, 1, size=(3,)) * np.array([0.1, 0.0041, 0.0011], dtype=float) * 0.1
+        data_x, data_u, xi_p = generate_dataset(sigma_exp=sigma_exp,T=T_data,burn_in=burn_in,N=N_traj,model_step_fn=model_step,base_policy=policy, x0=x0)
+        print(f"max |x| = {np.max(np.linalg.norm(data_x, axis=1)):.3e}, max |u| = {np.max(np.abs(data_u)):.3e}")
+        plot_trajectories(data_x, data_u, xi_p, filename=f"dataset_trajectories_LSPEPI_iter{k}")
+
+        ### print mean and variance of x, u in dataset
 
         theta_Q, eta_hat = lspe(
             data_x, data_u,
@@ -292,6 +380,7 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
             model_step=model_step,
             stage_reward=stage_reward,
             n_mc=n_mc,
+            lam=lam,
         )
 
         theta_Q_last = theta_Q
@@ -300,13 +389,13 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
         K_current = extract_K_from_theta(theta_Q)
         K_list.append(K_current)
 
-        print(f"{k} :  eta_hat = {eta_hat} | K = {K_current}")
+        # print(f"{k} :  eta_hat = {eta_hat} | K = {K_current}")
 
         policy = get_pol_fn(theta_Q, psi, constrained=constrained)
 
         # test the policy and print average reward
-        avg_reward = get_avg_reward(policy, T=100, N=N_traj)
-        print(f"  -> avg reward of new policy: {avg_reward}")
+        avg_reward = get_avg_reward(policy, T=100, N=50)
+        print(f"  -> avg reward of new policy: {avg_reward} (N=50)")
 
     return policy, theta_Q_last, eta_hat_last, np.array(K_list)
 
@@ -387,12 +476,17 @@ def q8_7_d4():
     # Run LSPE+PI (unconstrained improvement)
     # data_x_ls, data_u_ls, xi_p_ls = generate_dataset(T=100, burn_in=50, N=50, sigma_exp=0.1, model_step_fn=model_step)
     pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(initial_policy=pol_cl,
-        T_data=100, burn_in=50, N_traj=50, sigma_exp=0.1, 
-        psi=psi_d4, get_pol_fn=greedy_policy_from_theta,
-        model_step=model_step,stage_reward=stage_reward,
-        n_mc=50,
+        T_data=30, burn_in=20, N_traj=1000, sigma_exp=0.01, 
+        # psi=psi_d4, get_pol_fn=greedy_policy_from_theta,
+        # psi=psi_plus, get_pol_fn=greedy_policy_from_theta,
+        psi=scale_psi(psi_plus), get_pol_fn=greedy_policy_from_theta,
+        # psi=scale_psi(psi_d4), get_pol_fn=greedy_policy_from_theta,
+        model_step=model_step, stage_reward=stage_reward,
+        n_mc=20,
         n_pi_iters=10,
+        lam=1e-2,
         constrained=False, # <-- Q8.7 = unconstrained improvement
+        # constrained=True, # <-- Q8.7 = unconstrained improvement
     )
 
     print("Final eta_hat (Q8.7) =", eta_hat_last)
@@ -410,22 +504,24 @@ def q8_7():
     print("Dataset for LSPE+PI on true system generated (Q8.7).")
     # Run LSPE+PI (unconstrained improvement)
     pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(initial_policy=pol_cl,
-        T_data=500, burn_in=50, N_traj=100, sigma_exp=0.1, 
-        psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
+        T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.02, 
+        psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled,
         model_step=model_step,stage_reward=stage_reward,
-        n_mc=50,
-        n_pi_iters=10,
+        # model_step=model_step,stage_reward=stage_reward_c_quad,
+        n_mc=30,
+        n_pi_iters=5,
+        lam=1e-6,
         constrained=False, # <-- Q8.7 = unconstrained improvement
     )
 
-
     # training on c_quad => converges to LQR
     # pi_lspepi_cq, theta_Q_last_cq, eta_hat_last_cq, K_array_cq = lspe_pi(initial_policy=pol_cl,
-    #     T_data=500, burn_in=50, N_traj=50, sigma_exp=0.1,
+    #     T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.1,
     #     psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
     #     model_step=model_step,stage_reward=stage_reward_c_quad,
-    #     n_mc=50,
+    #     n_mc=30,
     #     n_pi_iters=5,
+        # lam=1e-6,
     #     constrained=False, # <-- Q8.7 = unconstrained improvement
     # )
 
@@ -514,7 +610,8 @@ if __name__ == "__main__":
 
 
     
-
+    # data_x, data_u, xi_p = generate_dataset(T=2000, N=1000, sigma_exp=0.1, burn_in=100)
+    # print(f"Dataset stats: x mean={np.mean(data_x, axis=0)}, x std={np.std(data_x, axis=0)}, u mean={np.mean(data_u)}, u std={np.std(data_u)}")
 
 
     # plt.show()
@@ -523,9 +620,9 @@ if __name__ == "__main__":
     # q8_5()
     # check_Q_exact_vs_Q_hat()
     # q8_6()
-    
-    q8_7()
-    # q8_7_d4()
+
+    # q8_7()
+    q8_7_d4()
 
 
     # q8_8()
