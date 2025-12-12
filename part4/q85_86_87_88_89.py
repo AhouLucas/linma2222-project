@@ -6,12 +6,11 @@ from scipy.linalg import solve_discrete_are, solve_discrete_lyapunov
 from scipy.optimize import minimize
 import itertools
 
+from model import c_quad, g, get_avg_reward
 from model import generate_trajectories, stage_reward, model_step, K_cl, pol_cl, reward
 from lqr import model, stage_reward_approx, model_step_approx, compute_lqr_gain
 from plotting import plot_reward_distribution, plot_trajectories, plot_Xfn_vs_Yfn, graph_K_evolution
 # from lqr import get_lqr_policy
-
-from model import get_avg_reward
 
 
 def cond_expectation(x, u, policy, psi, model_step, stage_reward=stage_reward, n_mc=20):
@@ -660,7 +659,7 @@ def check_Q_exact_vs_Q_hat():
         n_points=200, 
         seed=0,
         title="Comparison",
-        x_label=r"$Q_{\mathrm{LQR}}$",
+        x_label=r"$Q_{\mathrm{exact}}$",
         y_label=r"$\hat{Q}_{\mathrm{MC}}$ (LQR, No Noise, $T=1000$)"
     )
 
@@ -681,7 +680,6 @@ if __name__ == "__main__":
     model_step_approx_no_noise = lambda x, u: model_step_approx(x, u, xi_a=np.zeros(1))
     model_step_no_noise = lambda x, u: model_step(x, u, xi_a=0.0)
     stage_reward_no_noise = lambda x, u: stage_reward(x, u, xi_p_t=0.0)
-    from model import c_quad, g
     stage_reward_c_quad = lambda x, u: c_quad(g(x[0], x[1], x[2], u))
     stage_reward_c_quad_no_noise = lambda x, u: c_quad(g(x[0], x[1], x[2], u, xi_p=0.0))
 
@@ -698,11 +696,11 @@ if __name__ == "__main__":
     check_Q_exact_vs_Q_hat()
     q8_6()
 
-    q8_7()
+    # q8_7()
     # q8_7_d4() # not really working yet
 
-    q8_8()
-    q8_9()
+    # q8_8()
+    # q8_9()
 
 
 
