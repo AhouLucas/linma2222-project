@@ -88,17 +88,69 @@ def psi_plus(x, u):
     zu = float(x[2]) / 0.0011
     u = float(np.asarray(u).reshape(-1)[0]) / 0.11
 
-    return np.array([
-        # 1.0, # cannot have a const for poisson equation
-        q, za, zu, u,
-        q**2, za**2, zu**2, u**2,
-        q*za, q*zu, q*u, za*zu, za*u, zu*u,
-        # just add cubic terms
-        q**3, za**3, zu**3, u**3,
-        q*za*zu, q*za*u, q*zu*u, za*zu*u,
-        q**2 * za, q**2 * zu, q**2 * u,
+    # in x
+    phi_x = [
+        q, za, zu,
+        q**2, za**2, zu**2,
+        q*za, q*zu, za*zu,
+        # cubic in x only:
+        q**3, za**3, zu**3,
+        q**2 * za, q**2 * zu,
+        za**2 * q, zu**2 * q,
+    ]
 
-    ], dtype=float)
+    # linear in u terms
+    g_x = [
+        1.0,
+        q, za, zu,
+        q**2, za**2, zu**2,
+        q*za, q*zu, za*zu,
+    ]
+    phi_xu = [u * g for g in g_x]
+
+    # ---- single u^2 term ----
+    phi_u2 = [u**2]
+
+    return np.array(phi_x + phi_xu + phi_u2, dtype=float)
+
+
+def greedy_from_theta_plus(theta, psi, constrained=False):
+    # split theta according to psi_safe layout
+    d_phi_x = 15        # len(phi_x) above
+    d_gx    = 10        # len(g_x)
+    theta_x   = theta[:d_phi_x]
+    theta_xu  = theta[d_phi_x:d_phi_x + d_gx]
+    gamma     = theta[-1]  # u^2 coefficient
+    
+
+
+    def policy(x):
+        x = np.asarray(x).reshape(-1)
+        q, za, zu = float(x[0]), float(x[1]), float(x[2])
+
+        g_x = [
+            1.0,
+            q, za, zu,
+            q**2, za**2, zu**2,
+            q*za, q*zu, za*zu,
+        ]
+        b = float(np.dot(theta_xu, g_x))
+        a = float(gamma)
+
+        if a >= 0:
+            a = -1e-3   # or keep a small fixed negative value
+        u_star = - b / (2.0 * a)
+        
+        u_min = -1.0
+        u_max = 1.0
+        if constrained:
+            u_min = -q
+            u_max = 1.0 - q
+        u_star = np.clip(u_star, u_min, u_max)
+
+        return float(u_star)
+
+    return policy
 
 
 
@@ -129,7 +181,14 @@ def extract_K_from_theta(theta_Q): #### DEPENDING ON PSI DEFINITION
     bza = theta_Q[12]
     bzu = theta_Q[13]
 
-    K = np.array([ -bq  / (2*a), -bza / (2*a),-bzu / (2*a)])
+    # K = np.array([ -bq  / (2*a), -bza / (2*a),-bzu / (2*a)])
+
+    ## with scaling
+    sx = np.array([0.1, 0.0041, 0.0011], dtype=float)
+    su = 0.1
+    K = np.array([ -bq  / (2*a) * (su / sx[0]), -bza / (2*a) * (su / sx[1]), -bzu / (2*a) * (su / sx[2])])
+
+    print(f"extracted K from theta: {K}")
     return K
 
 
@@ -322,6 +381,8 @@ def greedy_policy_from_theta_d2_scaled(theta_Q, _psi, constrained=False):
             u_min = -q
             u_max = 1.0 - q
             u_star = np.clip(u_star, u_min, u_max)
+        # else:
+        #     u_star = np.clip(u_star, -1.0, 1.0)
         return float(u_star)
 
     return policy
@@ -341,9 +402,9 @@ def greedy_policy_from_theta(theta_Q, psi, constrained=False, n_grid=201):
             bounds = [(u_min, u_max)]
         else:
             bounds = [(-1.0, 1.0)]
-        
+        u0 = pol_cl(x)
         res = minimize(lambda u: -float(theta_Q @ psi(x, u)), 
-                       x0=np.array([0.0]), bounds=bounds, method='L-BFGS-B')
+                       x0=np.array([u0]), bounds=bounds, method='L-BFGS-B')
         return float(res.x[0])
     return policy
 
@@ -357,12 +418,15 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
             T_data=200,
             burn_in=50,
             lam=1e-4,
-            N_traj=100,):
+            N_traj=100,
+            extract_K_from_theta=None,
+        ):
     
     policy = initial_policy
     theta_Q_last = None
     eta_hat_last = None
     K_list = []
+    policies = [policy]
 
     for k in range(n_pi_iters):
         print(f"\n=== LSPE+PI iteration {k} ===")
@@ -385,19 +449,20 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
 
         theta_Q_last = theta_Q
         eta_hat_last = eta_hat
-
-        K_current = extract_K_from_theta(theta_Q)
-        K_list.append(K_current)
+        if extract_K_from_theta is not None:
+            K_current = extract_K_from_theta(theta_Q)
+            K_list.append(K_current)
 
         # print(f"{k} :  eta_hat = {eta_hat} | K = {K_current}")
 
         policy = get_pol_fn(theta_Q, psi, constrained=constrained)
+        policies.append(policy)
 
         # test the policy and print average reward
         avg_reward = get_avg_reward(policy, T=100, N=50)
         print(f"  -> avg reward of new policy: {avg_reward} (N=50)")
 
-    return policy, theta_Q_last, eta_hat_last, np.array(K_list)
+    return policy, theta_Q_last, eta_hat_last, np.array(K_list), policies
 
 
 def q8_5():
@@ -472,21 +537,21 @@ def q8_7_d4():
     # --- Data from exploration policy π_exp (same setting as Q8.5) ---
     print("Dataset for LSPE+PI on true system generated (Q8.7).")
 
-
     # Run LSPE+PI (unconstrained improvement)
     # data_x_ls, data_u_ls, xi_p_ls = generate_dataset(T=100, burn_in=50, N=50, sigma_exp=0.1, model_step_fn=model_step)
-    pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(initial_policy=pol_cl,
-        T_data=30, burn_in=20, N_traj=1000, sigma_exp=0.01, 
+    pi_lspepi, theta_Q_last, eta_hat_last, K_array, policies = lspe_pi(initial_policy=pol_cl,
+        T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.1, 
         # psi=psi_d4, get_pol_fn=greedy_policy_from_theta,
         # psi=psi_plus, get_pol_fn=greedy_policy_from_theta,
-        psi=scale_psi(psi_plus), get_pol_fn=greedy_policy_from_theta,
+        # psi=scale_psi(psi_plus), get_pol_fn=greedy_policy_from_theta,
+        psi=psi_plus, get_pol_fn=greedy_from_theta_plus,
         # psi=scale_psi(psi_d4), get_pol_fn=greedy_policy_from_theta,
         model_step=model_step, stage_reward=stage_reward,
-        n_mc=20,
+        n_mc=30,
         n_pi_iters=10,
-        lam=1e-2,
-        constrained=False, # <-- Q8.7 = unconstrained improvement
-        # constrained=True, # <-- Q8.7 = unconstrained improvement
+        lam=1e1,
+        # constrained=False, # <-- Q8.7 = unconstrained improvement
+        constrained=True, # <-- Q8.7 = unconstrained improvement
     )
 
     print("Final eta_hat (Q8.7) =", eta_hat_last)
@@ -503,9 +568,9 @@ def q8_7():
     # plt.show()
     print("Dataset for LSPE+PI on true system generated (Q8.7).")
     # Run LSPE+PI (unconstrained improvement)
-    pi_lspepi, theta_Q_last, eta_hat_last, K_array = lspe_pi(initial_policy=pol_cl,
+    pi_lspepi, theta_Q_last, eta_hat_last, K_array, policies = lspe_pi(initial_policy=pol_cl,
         T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.02, 
-        psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled,
+        psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled, # quadratic psi with scaling => LQR
         model_step=model_step,stage_reward=stage_reward,
         # model_step=model_step,stage_reward=stage_reward_c_quad,
         n_mc=30,
@@ -515,7 +580,7 @@ def q8_7():
     )
 
     # training on c_quad => converges to LQR
-    # pi_lspepi_cq, theta_Q_last_cq, eta_hat_last_cq, K_array_cq = lspe_pi(initial_policy=pol_cl,
+    # pi_lspepi_cq, theta_Q_last_cq, eta_hat_last_cq, K_array_cq, policies = lspe_pi(initial_policy=pol_cl,
     #     T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.1,
     #     psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
     #     model_step=model_step,stage_reward=stage_reward_c_quad,
@@ -529,52 +594,62 @@ def q8_7():
     ##### COMPARE POLICIES ######
 
     policy_list.append((pi_lspepi, "LSPE+PI (Unconstrained, True System)"))
-    plot_reward_distribution( policy_list, name="Q8_7_reward_distribution", T=1000, n_traj=1000)
+    plot_reward_distribution( policy_list, name="Q8_7", T=1000, n_traj=1000)
 
 
 def q8_8(): # approx model, 
     print("=== QUESTION 8.8: LSPE+PI on approximate model, evaluate on true system ===")
-    data_x_ap, data_u_ap, xi_p_ap = generate_dataset(sigma_exp=0.5, T=300, burn_in=100, N=100, model_step_fn=model_step_approx)
+    # data_x_ap, data_u_ap, xi_p_ap = generate_dataset(sigma_exp=0.5, T=300, burn_in=100, N=100, model_step_fn=model_step_approx)
     print("Dataset generated on approximate model (Q8.8).")
 
     # 3) Run LSPE+PI but *model_step and stage_reward come from approximate model*
-    pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last, K_array_ap = lspe_pi( initial_policy=pol_cl,
-        data_x=data_x_ap,data_u=data_u_ap,
-        psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
+    pi_lspepi_ap, theta_Q_ap_last, eta_hat_ap_last, K_array_ap, policies = lspe_pi( initial_policy=pol_cl,
+        T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.1,
+        # psi=psi, get_pol_fn=greedy_policy_from_theta_d2,
+        psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled,
         model_step=model_step_approx,stage_reward=stage_reward_approx,  # approximate model here
         n_mc=50,
         n_pi_iters=5,
+        lam=1e-6,
         constrained=False,    # Q8.8 uses UNCONSTRAINED version
+        extract_K_from_theta=extract_K_from_theta,
     )
 
     print("Final eta_hat (Q8.8, approx model) =", eta_hat_ap_last)
     graph_K_evolution({"K_k":K_array_ap}, K_lqr, title_suffix="during LSPE+PI on Approx Model")
-
-
     policy_list.append((pi_lspepi_ap, "LSPE+PI (Approx Model)"))
-    plot_reward_distribution( policy_list, name="Q8_8_reward_distribution", T=1000, n_traj=100)
+    plot_reward_distribution( policy_list, name="Q8_8", T=1000, n_traj=1000)
+
+
+    # for i, pol in enumerate(policies):
+    #     avg_reward = get_avg_reward(pol, T=1000, N=200)
+    #     print(f"Policy {i} average reward on TRUE system: {avg_reward}")
+
+
 
 ################
 # Question 8.9 #
 ################
 
 def q8_9(): # constrained improvement on true system
-    data_x_ls_c, data_u_ls_c, xi_p_ls_c = generate_dataset(T=50, N=100)
-    print("Dataset for constrained LSPE+PI on true system generated (Q8.9).")
-
-    
-    pi_lspepi_constr, theta_Q_last_c, eta_hat_last_c, K_array_c = lspe_pi( initial_policy=pol_cl,
-        data_x=data_x_ls_c, data_u=data_u_ls_c, 
-        psi=psi, get_pol_fn=greedy_policy_from_theta_analytic,
-        model_step=model_step, stage_reward=stage_reward,
-        n_mc=50,
+    # data_x_ls_c, data_u_ls_c, xi_p_ls_c = generate_dataset(T=50, N=100)
+    print("================== Q8.9: LSPE+PI, CONSTRAINED, TRUE system, psi quadratic ==================")
+    pi_lspepi_constr, theta_Q_last_c , eta_hat_last_c, K_array_c, policies = lspe_pi(initial_policy=pol_cl,
+        T_data=60, burn_in=50, N_traj=2000, sigma_exp=0.02, 
+        psi=scale_psi(psi), get_pol_fn=greedy_policy_from_theta_d2_scaled,
+        model_step=model_step,stage_reward=stage_reward,
+        # model_step=model_step,stage_reward=stage_reward_c_quad,
+        n_mc=30,
         n_pi_iters=5,
+        lam=1e-6,
         constrained=True,
     )
     print("Final eta_hat (Q8.9, constrained) =", eta_hat_last_c)
 
     policy_list.append((pi_lspepi_constr, "LSPE+PI (Constrained)"))
-    plot_reward_distribution( policy_list, name="Q8_9_reward_distribution", T=1000, n_traj=1000)
+    plot_reward_distribution( policy_list, name="Q8_9", T=1000, n_traj=1000)
+    plot_reward_distribution( policy_list, name="Q8_9_constrained", T=1000, n_traj=1000, constrained=True)
+
 
 def check_Q_exact_vs_Q_hat():    
     ### plot Q_exact vs Q_hat_mc
@@ -595,7 +670,9 @@ if __name__ == "__main__":
     
 
     K_lqr = compute_lqr_gain(model)
-    pol_lqr = lambda x: float(K_lqr @ x)
+    # pol_lqr = lambda x: float(K_lqr @ x) # DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
+    pol_lqr = lambda x: float(np.dot(K_lqr, x))
+
     
     policy_list = [(pol_lqr, "LQR Optimal Policy"), 
                    (pol_cl, "Closed-Loop Policy")]
@@ -617,16 +694,15 @@ if __name__ == "__main__":
     # plt.show()
 
     
-    # q8_5()
-    # check_Q_exact_vs_Q_hat()
-    # q8_6()
+    q8_5()
+    check_Q_exact_vs_Q_hat()
+    q8_6()
 
-    # q8_7()
-    q8_7_d4()
+    q8_7()
+    # q8_7_d4() # not really working yet
 
-
-    # q8_8()
-    # q8_9()
+    q8_8()
+    q8_9()
 
 
 

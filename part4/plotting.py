@@ -272,14 +272,20 @@ def compare_policies(policy1, policy2, N=100):
     print(f"Mean difference between policies: {np.mean(diff)}")
 
 
-def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, deterministic=False, x0=(0, 0, 0)):
+def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, deterministic=False, x0=(0, 0, 0), constrained=False):
     print(f"Evaluation of all policies over {n_traj} trajectories ...")
+    title_suffix = " (Constrained)" if constrained else ""
 
     all_rewards = np.zeros((len(policy_list), n_traj))
     for i in range(len(policy_list)):
         xi_a = np.zeros((T, n_traj)) if deterministic else None
         xi_p = np.zeros((T, n_traj)) if deterministic else None
-        x, u, xi_p = generate_trajectories(policy_list[i][0], x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True, xi_a=xi_a, xi_p=xi_p)
+        if constrained:
+            # constraint q + u between 0 and 1
+            policy = lambda x: np.clip(policy_list[i][0](x), -x[0], 1 - x[0])
+        else:
+            policy = policy_list[i][0]
+        x, u, xi_p = generate_trajectories(policy, x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True, xi_a=xi_a, xi_p=xi_p)
         all_rewards[i] = np.nanmean(reward(x, u, xi_p, T), axis=0).T
         print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
 
@@ -296,7 +302,7 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, determin
         plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
     plt.xlabel('Average Reward')
 
-    plt.title('Distribution of Average Rewards for Different Policies')
+    plt.title('Distribution of Average Rewards for Different Policies' + title_suffix)
     plt.ylabel('Average Reward')
     plt.grid()
     ## clip to have 90% of the data
@@ -314,7 +320,7 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, determin
         plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
 
     plt.xlabel('Average Reward')
-    plt.title('Cumulative Distribution of Average Rewards for Different Policies')
+    plt.title('Cumulative Distribution of Average Rewards for Different Policies' + title_suffix)
     plt.ylabel('Cumulative Density')
     plt.grid()
     plt.legend()
