@@ -256,7 +256,7 @@ policy $pi_"cl"$. Use Question 8.4 to approximate the transition kernel of the s
 
 #answer(title:"Answer (cont.)")[
   #figure(
-    image("../../fig_in_git/comparison_Comparison_of_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 50%),
+    image("../../fig_in_git/comparison_Q8.5:_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 50%),
     caption: [Experimental $Q$-function obtained via Monte-Carlo approximation against $Q_"LSPE"$]
   )<fig:q85_QLSPE>
 
