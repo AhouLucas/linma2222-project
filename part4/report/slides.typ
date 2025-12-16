@@ -51,193 +51,201 @@
 #components.adaptive-columns(outline(title: none, indent: 1em))
 
 ////////////////////////////////////////////////////////////
-// Main deck (clear + structured, ~12 min)
+// Main deck (covers the whole project)
 ////////////////////////////////////////////////////////////
 
-= Problem setup
+= Problem & model
 
-== What are we solving?
+== Goal and setting (average reward)
 #slide[
   #title[Goal]
 
-  #blue[Objective] Maximize infinite-horizon average utility from trading one asset.
+  #blue[We solve an average-reward trading control problem:]
+  $
+    max_pi lim_(T -> oo) 1/T * EE[ sum_(t=0)^(T-1) r_t ]
+  $
 
   #v(0.3em)
-  #emph[State] $x_t = (q_t, z_t^a, z_t^u)^top$ \
-  #muted[
-    $q_t$: inventory (fraction of max position) \
-    $z_t^a$: latent market factor (random, persistent) \
-    $z_t^u$: temporary impact state (driven by our trades)
+  #block[
+    #emph[State:] $x_t = (q_t, z_t^a, z_t^u)^top$ \
+    #emph[Control:] $u_t$ (buy/sell) \
+    #emph[Noise:] $xi_t^a, xi_t^p ~ cal(N)(0,1)$ \
+    #emph[Constraint (feasible trading):] #red[$q_t in [0,1]$]
   ]
 
-  #v(0.3em)
-  #emph[Control] $u_t$ (trade amount) \
-  with constraint (feasible trading): #red[$q_t in [0,1]$] enforced via clipping/MPC.
-
-  #v(0.3em)
-  #blue[Methods we compare]
-  - Baseline linear feedback (#picl) + clipping
-  - Direct policy search (CMA-ES)
-  - Model-based control (LQR, MPC)
-  - Data-driven RL/ADP (LSTD→LSPI, Poisson/LSPE(+PI), Q-$lambda$)
-  #speaker-note[
-    - 1 slide to frame: state, action, constraint, and what we tried.
-    - emphasize: average-reward setting, not discounted.
+  #v(0.4em)
+  #muted[
+    We compare: baseline feedback + clipping, CMA-ES search, LQR/MPC, and RL/ADP (LSTD/LSPI, Q-$lambda$, LSPE(+PI)).
   ]
 ]
 
-== True dynamics and reward (intuitive)
+== Dynamics & reward (financial meaning)
 #slide(composer: (1fr, 1fr))[
   #block[
-    #blue[Dynamics (true system)]
+    #blue[True dynamics]
     $
     q_(t+1) &= q_t + u_t \
     z_(t+1)^a &= (1 - omega^a) z_t^a + omega^a sigma^a xi_t^a \
     z_(t+1)^u &= (1 - omega^u) z_t^u + omega^u beta^u u_t
     $
-    with $xi_t^a ~ cal(N)(0,1)$.
-  ]
-
-  #v(0.4em)
-  #muted[
-    Interpretation:
-    - $z^a$: exogenous, mean-reverting “alpha” signal
-    - $z^u$: our own transient price impact
-  ]
-][
-  #block[
-    #blue[Price and P&L]
-    $p_(t+1) = p_t + z_t^a + z_t^u + gamma^u u_t + sigma^p xi_t^p$
-    with $xi_t^p ~ cal(N)(0,1)$.
   ]
 
   #v(0.3em)
-  #blue[Gross P&L]
+  #muted[
+    - $z^a$: exogenous mean-reverting “alpha” signal \
+    - $z^u$: transient price impact due to our own trades
+  ]
+][
+  #blue[Price / execution and P&L]
   $
-  g_t := 1000 dot ((q_(t+1)p_(t+1) - q_t p_t) - (q_(t+1) - q_t)\, overline(p)_(t,t+1))
+    p_(t+1) = p_t + z_t^a + z_t^u + gamma^u u_t + sigma^p xi_t^p
+  $
+  $
+    overline(p)_(t,t+1) = theta p_t + (1-theta)p_(t+1) + theta gamma^u u_t
+  $
+
+  #v(0.3em)
+  #blue[Gross stage reward]
+  $
+  g_t := 1000 dot ((q_(t+1)p_(t+1)-q_t p_t) - (q_(t+1)-q_t) overline(p)_(t,t+1))
   $
 
   #v(0.2em)
-  #blue[Utility] $c(g) = 1 - exp(-g)$ (risk-averse).
-
-  #v(0.3em)
   #muted[
-    Key idea: trade-off between exploiting $z^a$ and controlling impact ($z^u$, $gamma^u$).
-  ]
-  #speaker-note[
-    - explain P&L decomposition in one sentence: mark-to-market minus execution cost.
-    - mention risk aversion: utility reduces incentive for high-variance strategies.
+    - Mark-to-market term: change in value of holdings \
+    - Execution term: cash flow at average execution price
   ]
 ]
 
-= Baselines and direct search
-
-== Baseline linear controller (and why clipping matters)
+== Utility function: why variance hurts (Q2.4)
 #slide[
-  #title[Baseline: linear feedback]
+  #title[Utility penalizes variance]
 
-  #blue[Unconstrained policy]
+  #blue[Net reward:] $r_t = c(g_t)$ with
   $
-  pi_"cl"(x_t) = K_"cl"x_t = -0.5 q_t + 0.5 z_t^a + 0.5 z_t^u
+    c(g) = max(g - 1/2 g^2, 1 - exp(-g))
   $
-
-  #v(0.2em)
-  #green[Works] Long-run average reward is positive (profitable on average).
-
-  #v(0.2em)
-  #red[Issue] Allows negative inventory (shorting) → unrealistic for our setting.
 
   #v(0.3em)
-  #blue[Feasible version via clipping]
+  #green[Key message]
+  Even if $EE[g_t]=0$, increasing $"Var"(g_t)$ decreases $EE[c(g_t)]$.
+  #figure(
+    image("figures/plot_q2.4.svg", width: 70%),
+    caption: [$EE[c(g)]$ decreases as variance increases (empirical)]
+  )
+  #speaker-note[
+    - risk aversion: big swings are penalized
+    - motivates more “stable” strategies in later parts
+  ]
+]
+
+= Closed-loop analysis (baselines + constraints)
+
+== Baseline linear policy #picl
+#slide[
+  #title[Baseline feedback policy]
+
   $
-    pi_"pcl"(x_t) = op("clip")(pi_"cl"(x_t), [-q_t, 1 - q_t])
+    pi_"cl"(x_t) = K_"cl"x_t = -0.5 q_t + 0.5 z_t^a + 0.5 z_t^u
   $
+
+  #v(0.2em)
+  #green[Observation]
+  - states/actions centered near 0 → frequent buy/sell
+  - long-run average reward > 0 → “profitable” on average
+
+  #v(0.2em)
+  #red[Issue]
+  - can make $q_t < 0$ (shorting) → infeasible in our setting
+
+  #figure(
+    image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
+    caption: [Example trajectory under #picl]
+  )
+]
+
+== Enforcing feasibility: clipped baseline #pipcl
+#slide[
+  #title[Clipping: feasible but saturating]
+
+  #blue[Projected policy]
+  $
+    pi_"pcl"(x_t) = max(-q_t, min(1-q_t, pi_"cl"(x_t)))
+  $
+
+  #v(0.2em)
   #muted[
-    Clipping creates “saturation episodes”: actions hit bounds, limiting exploitation.
+    Clipping creates saturation episodes: action hits bounds ⇒ “missed opportunities”.
   ]
 
   #grid(
     columns: (1fr, 1fr),
     figure(
-      image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 100%),
-      caption: [Example trajectory (#picl)]
+      image("figures/clipped_policy_ex_trajectory_states_actions.svg", width: 100%),
+      caption: [States & action (plateaux = saturation)]
     ),
     figure(
       image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Reward drops when clipping saturates]
+      caption: [Reward drops correlate with saturation]
     ),
   )
-  #speaker-note[
-    - point at saturation: plateaux in q_t/u_t and corresponding reward drops.
-    - message: feasibility costs performance if policy not designed for constraints.
-  ]
 ]
 
-== Direct policy search (CMA-ES): when model is hard
+== Better feasible policy: direct search (CMA-ES)
 #slide[
-  #title[Direct policy search (CMA-ES)]
+  #title[CMA-ES feasible policy search]
 
-  #blue[Motivation] Reward is non-linear (utility) + stochastic → gradient-free search works well.
+  #blue[Why CMA-ES?]
+  - objective is noisy (Monte Carlo average reward)
+  - non-smooth because of clipping
 
   #v(0.2em)
-  #blue[Parameterized feasible policies]
-  - Linear clipped: $pi_l(x)=op("clip")(p_3 [q, z^a, z^u]^top, [-q,1-q])$
-  - Quadratic clipped: $pi_q(x)=op("clip")(p_10 phi(x), [-q,1-q])$
+  #blue[Policies tested]
+  - linear clipped: $pi_l(x)=op("clip")(p_3 [q, z^a, z^u]^top, [-q,1-q])$
+  - quadratic clipped: $pi_q(x)=op("clip")(p_10 phi(x), [-q,1-q])$
 
   #v(0.3em)
   #green[Result]
-  - Improves reward distributions vs baselines.
-  - Quadratic is only marginally better → diminishing returns vs complexity.
+  CMA-ES improves reward distribution vs baselines; quadratic only slightly better.
 
   #figure(
     image("figures/policy_comparison_histogram_first_three.svg", width: 85%),
-    caption: [Reward comparison (baseline vs optimized)]
+    caption: [Reward comparison: baseline vs CMA-ES policies]
   )
-  #speaker-note[
-    - emphasize design choice: CMA-ES because objective is noisy.
-    - highlight: improved mean but increased variance can happen (risk vs return).
-  ]
 ]
 
-= Model-based control
+= Model-based control (approximation + constraints)
 
-== LQR approximation: from non-linear utility to tractable control
+== LQR approximation (why and how)
 #slide[
-  #title[LQR approximation (model-based benchmark)]
+  #title[LQR approximation]
 
-  #blue[Approximate dynamics]
+  #blue[Linear dynamics]
   $x_(t+1) = F x_t + G u_t + D xi_t$
 
-  $F = mat(1,0,0; 0,1-omega^a,0; 0,0,1-omega^u)$,
-  $quad G = mat(1; 0; omega^u beta^u)$.
-
-  #v(0.3em)
-  #blue[Approximate reward]
-  $ EE[c_"quad"(g_t) | x_t, u_t] approx 1/2 x^top S x + x^top P u + 1/2 u^top R u $
-
   #v(0.2em)
-  #muted[
-    Design choice: keep only up to 2nd order terms ⇒ standard infinite-horizon LQR.
-  ]
+  #blue[Quadratic reward approximation]
+  $
+    EE[c_"quad"(g_t) | x_t, u_t]
+    approx 1/2 x^top S x + x^top P u + 1/2 u^top R u
+  $
 
   #v(0.3em)
-  #green[Why this is useful]
-  - Gives an interpretable benchmark policy.
-  - Enables analytical comparisons (Riccati, theoretical average reward).
+  #muted[
+    Design choice: keep only 2nd-order terms → tractable Riccati solution (benchmark controller).
+  ]
 ]
 
-== LQR policy and performance
+== LQR optimal policy (unconstrained)
 #slide[
   #title[LQR policy #pilqr]
 
-  $pi_"lqr"(x_t) = -K_"lqr"x_t$
-  with $K_"lqr" approx mat(1.112, -2.649, -2.528)$.
+  - $pi_"lqr"(x_t) = -K_"lqr" x_t$ with $K_"lqr" approx mat(1.112, -2.649, -2.528)$
 
-  #v(0.2em)
-  #green[Observations]
-  - More aggressive trades (larger $u_t$ and inventory swings).
-  - Achieves much higher average reward than the baseline.
-  - Empirical reward close to theoretical prediction (from Riccati solution).
+  #v(0.3em)
+  #green[Observation]
+  - more aggressive but timed actions
+  - much higher average reward; empirical close to theoretical
 
   #grid(
     columns: (1fr, 1fr),
@@ -250,126 +258,197 @@
       caption: [Average reward]
     ),
   )
-  #speaker-note[
-    - message: LQR captures “right direction” even though true utility is non-quadratic.
-    - if asked: theory value computed via trace formula (appendix).
-  ]
 ]
 
-== Enforcing feasibility: clipped LQR vs MPC
+== Feasibility: clipped LQR vs MPC
 #slide[
   #title[Feasible control: clipped LQR vs MPC]
 
   #blue[Clipped LQR]
-  $pi_"plqr"(x)=op("clip")(pi_"lqr"(x),[-q,1-q])$ \
-  #red[Issue:] saturation hurts reward when “best” action is infeasible.
+  - feasible but saturates ⇒ average reward decreases vs unconstrained LQR
 
-  #v(0.3em)
+  #v(0.2em)
   #blue[MPC]
-  - Solve constrained optimization each step (horizon $cal(N)$).
-  - We used #emph[$cal(N)=10$] as compute/reward compromise.
-  - In experiments: similar reward to clipped LQR, higher compute cost.
+  - solve constrained finite-horizon optimization each step
+  - chosen horizon: #emph[$cal(N)=10$] (good compute/reward compromise)
+
+  #v(0.2em)
+  #green[Empirical takeaway]
+  MPC ≈ clipped LQR performance here, but MPC is more expensive.
 
   #grid(
     columns: (1fr, 1fr),
     figure(
       image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [Clipped LQR distribution]
+      caption: [Clipped LQR reward distribution]
     ),
     figure(
       image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [MPC distribution]
+      caption: [MPC reward distribution]
     ),
   )
-  #speaker-note[
-    - interpret: feasibility is the main performance bottleneck.
-    - MPC didn’t outperform enough to justify per-step optimization cost here.
-  ]
 ]
 
-= RL / ADP (data-driven)
+= RL / ADP (Parts III)
 
-== LSTD → LSPI: learning from trajectories
+== LSTD → LSPI (value-based improvement)
 #slide[
-  #title[LSTD and LSPI (value-based policy improvement)]
+  #title[LSTD and LSPI]
 
-  #blue[Idea]
-  Approximate $Q$ with linear features: $Q^theta(x,u) approx theta^top psi(x,u)$.
+  #blue[Policy evaluation]
+  Fit $Q^theta(x,u) approx theta^top psi(x,u)$ using LSTD from exploration data.
 
   #v(0.2em)
-  #blue[Design choice: basis]
-  - Quadratic basis matches LQR structure (exact in LQR case).
-  - Higher degree basis needed for original non-quadratic utility.
+  #blue[Policy improvement]
+  Greedy step: $pi(x)=arg max_u Q^theta(x,u)$ ⇒ iterate (LSPI).
 
-  #v(0.3em)
-  #green[Empirical result]
-  LSPI improves over #picl and can approach model-based performance.
+  #v(0.2em)
+  #green[Result on the true reward model]
+  LSPI improves over #picl and can be competitive.
 
   #figure(
     image("figures/q63_policy_rewards.png", width: 75%),
-    caption: [Reward comparison: #picl vs #pilqr vs #pilspi]
+    caption: [Rewards: #picl vs #pilqr vs #pilspi]
   )
-  #speaker-note[
-    - mention exploration policy: Gaussian around K_cl x.
-    - point: good features are more important than fancy optimizer.
-  ]
 ]
 
-== Poisson error & LSPE(+PI): average-reward-consistent learning
+== Q-$lambda$ learning (Parts III)
 #slide[
-  #title[Poisson error and LSPE(+PI)]
+  #title[Q-$lambda$ learning]
 
-  #blue[Average-reward setting]
-  $cal(P)^theta(x,u) = EE[r + Q^theta(x^+, pi(x^+)) | x,u] - eta^theta - Q^theta(x,u)$
-
-  #v(0.2em)
-  #blue[LSPE]
-  Minimize mean-squared Poisson error → least-squares in $(theta, eta)$.
+  #blue[On LQR approximate model]
+  - learned gains move toward #Klqr
+  - $lambda$ increases speed but may cause instability unless step-size is reduced
 
   #v(0.2em)
-  #blue[Kernel approximation]
-  Expected next-feature uses finite-support (Monte-Carlo) approximation of the transition kernel.
+  #figure(
+    image("figures/convergence_during_Q-λ_Learning_for_different_λ.svg", width: 75%),
+    caption: [Effect of $lambda$ on convergence / instability]
+  )
+]
+
+== Q-$lambda$ on the true (deterministic) system
+#slide[
+  #title[Q-$lambda$ on true system: cautious policy]
+
+  #muted[
+    Deterministic true system stabilizes to $(0,0,0)$, so gains occur mainly early in the episode.
+  ]
+
+  #figure(
+    image("figures/policy_comparison_histogram_Q-7-2.svg", width: 70%),
+    caption: [Average reward comparison on deterministic true system]
+  )
+]
+
+= Mean Poisson error (Part IV)
+
+== Poisson error vs Bellman error (why LSPE)
+#slide[
+  #title[Poisson error & LSPE motivation]
+
+  #blue[Average-reward setting → Poisson error]
+  $cal(P)^theta(x,u) = EE[r + Q^theta(x^+,pi(x^+)) | x,u] - eta^theta - Q^theta(x,u)$
+
+  #v(0.2em)
+  #blue[Discounted setting → Bellman error]
+  $cal(B)^theta(x,u) = EE[r + gamma Q^theta(x^+,pi(x^+)) | x,u] - Q^theta(x,u)$
 
   #v(0.3em)
-  #green[With policy improvement (LSPE+PI)]
-  - start from #picl,
-  - alternate evaluation + improvement,
-  - on LQR approximate model: quickly recovers LQR-like gain.
+  #green[Takeaway]
+  Since our project is average-reward, #emph[Poisson error is the natural consistency condition].
+]
 
+== LSPE evaluation (Part IV: Q8.5–Q8.6)
+#slide[
+  #title[LSPE policy evaluation]
+
+  #blue[Kernel approximation]
+  Use a finite-support (Monte Carlo) approximation of the transition kernel.
+
+  #v(0.3em)
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("../../fig_in_git/comparison_Q8.5:_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 100%),
+      caption: [True system: $Q_"LSPE"$ vs Monte-Carlo estimate]
+    ),
+    figure(
+      image("../../fig_in_git/comparison_Q8.6:_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model).svg", width: 100%),
+      caption: [LQR model: $Q_"LSPE"$ vs exact $Q$]
+    ),
+  )
+]
+
+== LSPE+PI (Part IV: Q8.7–Q8.8) + constrained PI (Q8.9)
+#slide[
+  #title[LSPE+PI and constraint effects]
+
+  #blue[LSPE+PI]
+  - start from #picl
+  - alternate evaluation (LSPE) + improvement
+  - on LQR model: gain converges quickly to #Klqr
+
+  #v(0.3em)
   #grid(
     columns: (1fr, 1fr),
     figure(
       image("../../fig_in_git/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 100%),
-      caption: [Convergence to #Klqr]
+      caption: [Gain convergence to #Klqr]
     ),
     figure(
       image("../../fig_in_git/policy_comparison_histogram_Q8_7.svg", width: 100%),
       caption: [Rewards: #picl vs #pilqr vs #pilspepi]
     ),
   )
+
+  #v(0.2em)
+  #muted[
+    With constrained PI, saturation increases; unconstrained PI can look worse unless all policies are constrained for fair comparison.
+  ]
 ]
 
-= Takeaways
+= Conclusion
 
-== Final takeaways (what we learned)
+== Summary of methods and results
 #slide[
-  #title[Takeaways]
+  #title[Summary]
 
-  #blue[Benchmarks]
-  - #pilqr is the best unconstrained controller (high reward, interpretable).
-  - Feasibility (#red[$q in [0,1]$]) is the main source of performance loss.
+  #blue[Baselines]
+  - #picl: positive reward but infeasible (can short)
+  - #pipcl: feasible but reward drops during saturation
 
-  #v(0.3em)
-  #blue[Feasible controllers]
-  - clipped LQR ≈ MPC (here), but MPC costs more compute without clear gains.
+  #v(0.2em)
+  #blue[Feasible improvement]
+  - CMA-ES: boosts performance; quadratic gives small extra gain
 
-  #v(0.3em)
-  #blue[Learning-based methods]
-  - With the right feature structure, LSPI and LSPE+PI can recover near-LQR behavior.
-  - Main difficulty: constraint handling + saturation (needs constraint-aware improvement).
+  #v(0.2em)
+  #blue[Model-based]
+  - #pilqr: best unconstrained benchmark (high reward, interpretable)
+  - clipped LQR ≈ MPC (here), MPC costs more compute
 
-  #v(0.5em)
-  #muted[Appendix contains: derivations, algorithms, hyperparameters, extra plots, and “bonus” parts.]
+  #v(0.2em)
+  #blue[Learning]
+  - LSPI and LSPE+PI can recover near-LQR behavior with good features
+  - main difficulty is constraint handling (clipping / constrained PI)
+]
+
+== Design choices & difficulties (explicit)
+#slide[
+  #title[Design choices & difficulties]
+
+  #blue[Design choices]
+  - enforce feasibility via clipping; compare with MPC
+  - CMA-ES for noisy/non-smooth policy optimization
+  - quadratic features for LQR-consistent learning; higher-degree for true utility
+  - MPC horizon #emph[$cal(N)=10$] as compute/reward trade-off
+  - exploration: Gaussian around $K_"cl"x$ with tuned variance
+
+  #v(0.4em)
+  #blue[Difficulties + how we addressed them]
+  - saturation episodes reduce reward ⇒ compare “fairly” (all constrained vs all unconstrained)
+  - Q-$lambda$ instability at large $lambda$ ⇒ reduce learning rate $alpha$
+  - average-reward evaluation needs $eta$ ⇒ Poisson/LSPE directly estimates it
 ]
 
 == Q&A
@@ -377,241 +456,165 @@
   #title[Questions]
 
   #muted[
-    Backup slides follow:
-    - derivations (quadratic form, LQR reward, Riccati)
-    - CMA-ES parameterization
-    - E-PIA, Q-$lambda$ learning details
-    - Poisson vs Bellman, LSPE normal equations
-    - constrained PI discussion
+    Backup slides follow: derivations, algorithms, extra plots, and bonus details.
   ]
 ]
 
 ////////////////////////////////////////////////////////////
-// Appendix (bonus information)
+// Appendix (bonus + all extra details)
 ////////////////////////////////////////////////////////////
 #show: appendix
 = Appendix
 
-== Appendix: quadratic form of $g_t$
+== Appendix: $g_t$ as quadratic form (Q2.3)
 #slide[
   #title[Quadratic form of $g_t$]
 
-  #muted[
-    Use if asked: “How do you write $g_t$ as a quadratic form?”
-  ]
+  $g_t = 1/2 y_t^top H y_t$ with
+  $y_t = (q_t, z_t^a, z_t^u, u_t, xi_t^a, xi_t^p)^top$.
 
-  $g_t = 1/2 y_t^top H y_t$ with $y_t = (q_t, z_t^a, z_t^u, u_t, xi_t^a, xi_t^p)^top$.
-
-  #v(0.3em)
   #muted[
-    (Full $H$ matrix is in the report, Q2.3.)
+    Full matrix $H$ is given in the report (Q2.3). Use this slide if asked “how did you get the quadratic structure?”.
   ]
 ]
 
-== Appendix: LQR solution details
+== Appendix: LQR Riccati and theoretical reward (Q4.4)
 #slide[
-  #title[LQR: Riccati + theoretical reward]
+  #title[LQR details]
 
-  #blue[Optimal gain]
-  $K = (hat(R) + G^top M^* G)^(-1) (G^top M^* F + N^top)$
+  #blue[Optimal policy]
+  $u_t = -K x_t$
 
   #v(0.2em)
-  #blue[Riccati equation]
+  #blue[Riccati fixed point]
   $
-  M^* = F^top M^* F - (F^top M^* G + N)(hat(R) + G^top M^* G)^(-1)(G^top M^* F + N^top) + Q
+  M^* = F^top M^* F - (F^top M^* G + N)(hat(R)+G^top M^* G)^(-1)(G^top M^* F + N^top) + Q
   $
 
-  #v(0.3em)
+  #v(0.2em)
   #blue[Theoretical average reward]
   $J^*_("reward") = -1/2 tr(M^* D D^top)$
 
-  #v(0.3em)
   #muted[
-    We solved by iterating the finite-horizon Riccati recursion until convergence.
+    We compute $M^*$ by iterating finite-horizon Riccati until convergence.
   ]
 ]
 
-== Appendix: MPC design choice
+== Appendix: Baseline distributions (Q3.2 / Q3.4)
 #slide[
-  #title[MPC: horizon choice $cal(N)$]
-
-  #blue[Trade-off]
-  - larger $cal(N)$: better look-ahead, more compute per step
-  - smaller $cal(N)$: cheaper, more myopic
-
-  #v(0.3em)
-  #muted[
-    We tested $cal(N)$ from 1 to 15 and selected $cal(N)=10$ as a good compute/reward compromise.
-  ]
-
-  #v(0.3em)
-  #grid(
-    columns: (1fr, 1fr),
-    figure(
-      image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
-      caption: [Example MPC trajectory]
-    ),
-    figure(
-      image("figures/mpc_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Example MPC average reward]
-    ),
-  )
-]
-
-== Appendix: E-PIA (policy iteration) convergence
-#slide[
-  #title[E-PIA (policy iteration) → LQR]
-
-  #muted[
-    E-PIA updates $K_k$ using Lyapunov/Riccati-like evaluation and a greedy improvement step.
-  ]
-
-  #grid(
-    columns: (1fr, 1fr),
-    figure(
-      image("figures/EPIA_convergence.svg", width: 100%),
-      caption: [Convergence to $K_"lqr"$]
-    ),
-    figure(
-      image("figures/EPIA_K_values.svg", width: 100%),
-      caption: [$K_k$ components vs iteration]
-    ),
-  )
-]
-
-== Appendix: LSTD basis choices (why quadratic often wins)
-#slide[
-  #title[LSTD basis choices]
-
-  #blue[Quadratic (LQR-consistent)]
-  $
-  psi(x,u) = (&q^2, 2q z^a, 2q z^u, 2q u,
-             (z^a)^2, 2z^a z^u, 2z^a u,
-             (z^u)^2, 2z^u u, u^2)
-  $
-
-  #v(0.3em)
-  #blue[Higher-degree (true utility)]
-  #muted[
-    For $c(g)=1-exp(-g)$, a degree-2 basis may underfit; we used higher degree in Part III.
-  ]
-]
-
-== Appendix: Q-$lambda$ learning (stability)
-#slide[
-  #title[Q-$lambda$ learning: speed vs stability]
-
-  #muted[
-    Larger $lambda$ can speed convergence (credit assignment over multiple steps),
-    but may cause instability if the learning rate $alpha$ is not reduced.
-  ]
-
-  #figure(
-    image("figures/convergence_during_Q-λ_Learning_for_different_λ.svg", width: 75%),
-    caption: [Effect of $lambda$ on convergence / instability]
-  )
-]
-
-== Appendix: Poisson vs Bellman error (when to use which)
-#slide[
-  #title[Poisson error vs Bellman error]
-
-  #blue[Bellman error] (discounted)
-  $
-    cal(B)^theta(x,u) = EE[r + gamma Q^theta(x^+, pi(x^+)) | x,u] - Q^theta(x,u)
-  $
-  with $gamma in [0,1)$.
-
-  #v(0.3em)
-  #blue[Poisson error] (average reward, $gamma=1$)
-  $
-    cal(P)^theta(x,u) = EE[r + Q^theta(x^+, pi(x^+)) | x,u] - eta^theta - Q^theta(x,u)
-  $
-
-  #v(0.3em)
-  #muted[
-    In our project we target average reward ⇒ Poisson/LSPE is the natural framework.
-  ]
-]
-
-== Appendix: LSPE normal equations (bonus)
-#slide[
-  #title[LSPE: least-squares system]
-
-  #muted[
-    If $Q^theta(x,u)=theta_1^top psi_Q(x,u)$ and $eta^theta=theta_2$,
-    define $Psi(x,u) = vec(overline(psi)(x,u)-psi_Q(x,u), -1)$ and
-    $cal(P)^theta(x,u)=overline(r)(x,u) + theta^top Psi(x,u)$.
-  ]
-
-  #v(0.2em)
-  #blue[Normal equations]
-  $
-  A_"lspe" theta = b_"lspe"
-  $
-  where
-  $
-  A_"lspe" = EE[Psi Psi^top], quad
-  b_"lspe" = -EE[Psi\, overline(r)].
-  $
-
-  #v(0.2em)
-  #muted[
-    We approximate expectations using steady-state samples under an exploration policy.
-  ]
-]
-
-== Appendix: finite-support kernel approximation (bonus)
-#slide[
-  #title[Finite-support transition kernel]
-
-  #blue[Monte-Carlo kernel]
-  $
-    kappa_M(x^+ | x,u) = 1/M sum_(m=1)^M delta_(x^((m)+)(x,u))(x^+)
-  $
-
-  #v(0.3em)
-  #muted[
-    Sample $xi^(a,(m)) ~ cal(N)(0,1)$, build next states $x^((m)+)$, then use empirical expectation
-    to compute $overline(psi)(x,u)$.
-  ]
-]
-
-== Appendix: constrained policy improvement (why it can hurt)
-#slide[
-  #title[Constrained PI: why performance drops]
-
-  #blue[Constraint]
-  $0 <= q + u <= 1$
-
-  #v(0.3em)
-  #muted[
-    Constraint-aware improvement often:
-    - changes argmax of $Q^theta(x,u)$ (clipped optimizer hits boundaries),
-    - increases saturation frequency,
-    - reduces ability to exploit “strong signal” states.
-  ]
-
-  #v(0.3em)
-  #figure(
-    image("../../fig_in_git/policy_comparison_histogram_Q8_9_constrained.svg", width: 70%),
-    caption: [Reward distributions under constraints]
-  )
-]
-
-== Appendix: baseline distributions (for quick reference)
-#slide[
-  #title[Baseline reward distributions]
+  #title[Baseline distributions]
 
   #grid(
     columns: (1fr, 1fr),
     figure(
       image("figures/unclipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-      caption: [Unclipped baseline (#picl)]
+      caption: [Unclipped baseline]
     ),
     figure(
       image("figures/clipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-      caption: [Clipped baseline (#pipcl)]
+      caption: [Clipped baseline]
+    ),
+  )
+]
+
+== Appendix: LQR distributions (Q4.6 / Q4.8)
+#slide[
+  #title[LQR distributions]
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("figures/lqr_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+      caption: [Unclipped LQR]
+    ),
+    figure(
+      image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+      caption: [Clipped LQR]
+    ),
+  )
+]
+
+== Appendix: MPC trajectories (Q4.10–Q4.11)
+#slide[
+  #title[MPC extra plots]
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
+      caption: [Example MPC states/actions]
+    ),
+    // figure(
+    //   image("figures/mpc_optimal_policy_cumulative_reward_100_trajectories.svg", width: 100%),
+    //   caption: [MPC average reward over 100 sims]
+    // ),
+  )
+]
+
+== Appendix: Exact Policy Iteration (E-PIA) (Q5.1)
+#slide[
+  #title[E-PIA convergence]
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("figures/EPIA_convergence.svg", width: 100%),
+      caption: [Error norm to #Klqr]
+    ),
+    figure(
+      image("figures/EPIA_K_values.svg", width: 100%),
+      caption: [$K_k$ components]
+    ),
+  )
+]
+
+== Appendix: LSTD evaluation plots (Q6.3–Q6.4)
+#slide[
+  #title[LSTD evaluation]
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("figures/q63_lspd_vs_qhat.png", width: 100%),
+      caption: [True system: $Q^theta$ vs $\hat Q$]
+    ),
+    // figure(
+    //   image("figures/q64_lspd_vs_qhat.png", width: 100%),
+    //   caption: [LQR model: $Q^theta$ vs exact/empirical $Q$]
+    // ),
+  )
+]
+
+== Appendix: LSPI convergence and constrained PI (Q6.6–Q6.7)
+#slide[
+  #title[LSPI: convergence + constraints]
+
+  #grid(
+    columns: (1fr, 1fr),
+    // figure(
+    //   image("figures/q64_policy_convergence.png", width: 100%),
+    //   caption: [LSPI gain converges to #Klqr]
+    // ),
+    figure(
+      image("figures/q67_policy_rewards.png", width: 100%),
+      caption: [Constrained PI can reduce reward]
+    ),
+  )
+]
+
+== Appendix: LSPE constrained comparison (Q8.9)
+#slide[
+  #title[LSPE+PI with constrained improvement]
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("../../fig_in_git/policy_comparison_histogram_Q8_9.svg", width: 100%),
+      caption: [Unconstrained comparison]
+    ),
+    figure(
+      image("../../fig_in_git/policy_comparison_histogram_Q8_9_constrained.svg", width: 100%),
+      caption: [Fair comparison: all constrained]
     ),
   )
 ]

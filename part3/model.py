@@ -34,16 +34,18 @@ def generate_trajectories(policy, x0=(0, 0, 0), T=1000, N=1, xi_a=None, xi_p=Non
     """
     x = np.zeros((T+1, 3, N))  # State variables: q_t, za_t, zu_t
     u = np.zeros((T, N))       # Actions
-    if x0 == "random":
+    # if x0 == "random":
+    if type(x0) == str and x0 == "random":
         # x[0, 0] = rng.normal(0, 0.1, size=(N,))  # q_0
         # x[0, 1] = rng.normal(0, 0.001, size=(N,))   # za_0
         # x[0, 2] = rng.normal(0, 0.001, size=(N,))   # zu_0
         x[0] = rng.normal(0, 1, size=(3, N)) * np.array([[1], [SIGMA_A], [BETA_U]])
     # if x0 is a function, call it to get initial state
+
     elif callable(x0):
         for i in range(N):
             x[0, :, i] = x0()
-    else:
+    elif isinstance(x0, (list, tuple, np.ndarray)):
         x[0] = np.array(x0).reshape(3, 1)
 
 
