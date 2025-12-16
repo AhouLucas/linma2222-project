@@ -747,7 +747,7 @@ def q8_9(): # constrained improvement on true system
 if __name__ == "__main__":
     d = 14  # length of psi vector
     
-    np.random.seed(0)
+
     K_lqr = compute_lqr_gain(model)
     # pol_lqr = lambda x: float(K_lqr @ x) # DeprecationWarning: Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
     pol_lqr = lambda x: (K_lqr @ x).item()  # safer way to extract scalar from array
@@ -762,6 +762,8 @@ if __name__ == "__main__":
     stage_reward_no_noise = lambda x, u: stage_reward(x, u, xi_p_t=0.0)
     stage_reward_c_quad = lambda x, u: c_quad(g(x[0], x[1], x[2], u))
     stage_reward_c_quad_no_noise = lambda x, u: c_quad(g(x[0], x[1], x[2], u, xi_p=0.0))
+
+
     
     q8_5()
     check_Q_exact_vs_Q_hat()
