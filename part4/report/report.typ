@@ -273,7 +273,8 @@ Consider the LQR approximate model obtained in Section 4, i.e., with objective (
   Again, we ran the LSPE algorithm, this time on the LQR approximate model from section 4. We use the same choice of basis as the last question.
 
   #figure(
-    image("../../fig_in_git/comparison_Comparison_of_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model)_.svg", width: 50%),
+    // image("../../fig_in_git/comparison_Comparison_of_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model)_.svg", width: 50%),
+    image("../../fig_in_git/comparison_Q8.6:_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model).svg", width: 50%),
     caption: [Exact $Q$-function of the LQR approximate model against $Q_"LSPE"$]
   )<fig:q86_QLSPE>
 
