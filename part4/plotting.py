@@ -272,11 +272,13 @@ def compare_policies(policy1, policy2, N=100):
     print(f"Mean difference between policies: {np.mean(diff)}")
 
 
-def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, deterministic=False, x0=(0, 0, 0), constrained=False):
+def plot_reward_distribution(policy_list, name="", n_traj=1000, n_traj_mpc=1, T=1000, deterministic=False, x0=(0, 0, 0), constrained=False):
     print(f"Evaluation of all policies over {n_traj} trajectories ...")
     title_suffix = " (Constrained)" if constrained else ""
 
-    all_rewards = np.zeros((len(policy_list), n_traj))
+    # all_rewards = np.zeros((len(policy_list), n_traj))
+    # default to nan
+    all_rewards = np.full((len(policy_list), n_traj), np.nan)
     for i in range(len(policy_list)):
         xi_a = np.zeros((T, n_traj)) if deterministic else None
         xi_p = np.zeros((T, n_traj)) if deterministic else None
@@ -285,18 +287,32 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, determin
             policy = lambda x: np.clip(policy_list[i][0](x), -x[0], 1 - x[0])
         else:
             policy = policy_list[i][0]
-        x, u, xi_p = generate_trajectories(policy, x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else 1, show_progress=True, xi_a=xi_a, xi_p=xi_p)
-        all_rewards[i] = np.nanmean(reward(x, u, xi_p, T), axis=0).T
-        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
+        x, u, xi_p = generate_trajectories(policy, x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else n_traj_mpc, show_progress=True, xi_a=xi_a, xi_p=xi_p, desc=f"Evaluating {policy_list[i][1]:20s}")
+        rewards_by_traj = np.nanmean(reward(x, u, xi_p, T), axis=0)
+        # all_rewards[i] = rewards_by_traj
+        all_rewards[i, :len(rewards_by_traj)] = rewards_by_traj
+        print(f"{policy_list[i][1]:30s}  Number of trajectories = {x.shape[2]}, trajectory length = {x.shape[0]}, reward shape = {reward(x, u, xi_p, T).shape}, avg reward shape = {np.nanmean(reward(x, u, xi_p, T), axis=0).T.shape}, number of non nan rewards = {np.sum(~np.isnan(all_rewards[i]))}")
+        # print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
 
 
+    print(f"\nPOLICY REWARD SUMMARY: (constrained={constrained})")
+    mean_rewards = [(name, np.nanmean(all_rewards[i]), np.nanstd(all_rewards[i]), np.sum(~np.isnan(all_rewards[i]))) for i, (policy, name) in enumerate(policy_list)]
+    mean_rewards.sort(key=lambda x: x[1], reverse=True)
+    for name, mean_reward, std_reward, count in mean_rewards:
+        print(f"  Policy: {name:20s} | Mean Reward: {mean_reward:10.6f} | Std Dev: {std_reward:10.6f} | Samples: {count}")
+    
     # plot all the rewards
     plt.figure(figsize=(10, 6))
     labels = [policy_list[i][1] for i in range(len(policy_list))]
     # start the box to have 90% of the data
     # plt.hist(all_rewards.T, bins=30, label=labels, alpha=1, density=True)
-    start, end = np.percentile(all_rewards, 5), np.percentile(all_rewards, 95)
+    
+    all_rewards_without_nan = all_rewards[~np.isnan(all_rewards)]
+    start, end = np.percentile(all_rewards_without_nan, 5), np.percentile(all_rewards_without_nan, 95)
+
     plt.hist(all_rewards.T, bins=30, range=(start, end), label=labels, alpha=1, density=True)
+    # there is some nan in the hist :
+    # plt.hist([all_rewards[i][~np.isnan(all_rewards[i])] for i in range(all_rewards.shape[0])], bins=30, range=(start, end), label=labels, alpha=1, density=True)
     # add the mean of each distribution
     for i in range(all_rewards.shape[0]):
         plt.axvline(np.nanmean(all_rewards[i]), color=f'C{i}', linestyle='dashed', linewidth=1)
@@ -306,7 +322,7 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, determin
     plt.ylabel('Average Reward')
     plt.grid()
     ## clip to have 90% of the data
-    plt.xlim(np.percentile(all_rewards, 2), np.percentile(all_rewards, 98))
+    plt.xlim(np.percentile(all_rewards_without_nan, 2), np.percentile(all_rewards_without_nan, 98))
     plt.legend()
     plt.savefig(f"figures/policy_comparison_histogram_{name}.svg", format='svg')
 
@@ -325,6 +341,8 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, T=1000, determin
     plt.grid()
     plt.legend()
     plt.savefig(f"figures/policy_comparison_cumulative_distribution_{name}.svg", format='svg')
+
+    return all_rewards # array of shape (n_policies, n_traj)
 
 
 

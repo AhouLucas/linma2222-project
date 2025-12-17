@@ -141,3 +141,43 @@ def q_lambda_learning_LQR(model, N, T, f_x0, alpha=1e-4, alpha_mul=[], lambda_=0
     K_learned = compute_K(theta)
 
     return K_learned, H, data
+
+
+def get_q_lambda_policy(model=None, clipped=False, use_precomputed=True):
+    """Get the Q-λ learning policy.
+    
+    Args:
+        model: System model tuple. If None, uses lqr.model.
+        clipped: If True, returns clipped policy (q ∈ [0, 1]).
+        use_precomputed: If True, use precomputed K values (fast). Otherwise train (slow).
+    
+    Returns:
+        A policy function that takes state x and returns control u.
+    """
+    import numpy as np
+    
+    if use_precomputed:
+        # Precomputed from experiments on true system
+        K_Q_lambda = np.array([-0.0865145, 0.00021523, 0.01188014])
+    else:
+        if model is None:
+            from lqr import model as model_matrices
+            model = model_matrices
+        from model import SIGMA_A, BETA_U
+        
+        rng = np.random.default_rng(42)
+        f_x0 = lambda: np.multiply(rng.normal(0, 1, size=(3)), np.array([1, SIGMA_A, BETA_U])) * 0.1
+        N, T = 500_000, 2
+        K_Q_lambda, _, _ = q_lambda_learning_LQR(
+            model, N, T, f_x0, 
+            lambda_=0.8, alpha=4e-1, 
+            alpha_mul=[(0.07, 10), (0.9, 0.1)]
+        )
+    
+    def q_lambda_policy(x):
+        u = float(K_Q_lambda @ x)
+        if clipped:
+            u = float(np.clip(u, -x[0], 1 - x[0]))
+        return u
+    
+    return q_lambda_policy

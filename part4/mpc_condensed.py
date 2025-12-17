@@ -94,3 +94,33 @@ def _mpc_condensed(x0, N, precomputed_condensed=None):
 def get_mpc_condensed_policy(N, model, y_min, y_max, u_min, u_max):
     precomputed_condensed = precompute_mpc_condensed_matrices(N, model, y_min, y_max, u_min, u_max)
     return lambda x: _mpc_condensed(x, N, precomputed_condensed)
+
+
+def get_mpc_policy(N=10, model=None):
+    """Get a ready-to-use MPC policy with default constraints.
+    
+    Args:
+        N: MPC horizon (default 10)
+        model: System model tuple (F, G, H, E, D, Q, R, S). If None, uses lqr.model.
+    
+    Returns:
+        A policy function that takes state x and returns control u.
+    """
+    if model is None:
+        from lqr import model as model_matrices
+        model = model_matrices
+    
+    # Default constraints: q ∈ [0, 1], no input constraints
+    u_min, u_max = [None], [None]
+    y_min = np.array([0, None, None], dtype=object)
+    y_max = np.array([1, None, None], dtype=object)
+    
+    mpc_policy_raw = get_mpc_condensed_policy(N, model, y_min, y_max, u_min, u_max)
+    
+    # Wrap to handle 1D input and return scalar
+    def mpc_policy(x):
+        x = np.asarray(x).reshape(-1, 1)
+        result = mpc_policy_raw(x)
+        return float(np.asarray(result).flatten()[0])
+    
+    return mpc_policy

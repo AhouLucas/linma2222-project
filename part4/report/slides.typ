@@ -393,8 +393,7 @@
   ]
 ]
 
-= Conclusion
-
+= Model Comparison
 == Summary of methods and results
 #slide[
   // #title[Summary]
@@ -422,15 +421,17 @@
     columns: (1.5fr, 0.5fr, 0.5fr, 1fr, 1fr, 2fr),
     align: (center, center, center, center, left),
     [*Policy*], [*Model*], [*const*], [*Avg Reward*],[*Avg Reward (unc)*], [*Comments*],
-    [#picl], [True], [#red[✗]], [], [], [baseline],
-    [#pipcl], [True], [#green[✓]], [], [], [saturation reduces reward],
-    [CMA-ES linear], [True], [#green[✓]], [], [], [better],
+    [#picl], [True], [#red[✗]], [0.005796], [0.011451], [baseline],
+    // [#pipcl], [True], [#green[✓]], [], [], [saturation reduces reward],
+    [CMA-ES linear], [True], [#green[✓]], [0.009654], [0.009752], [better],
     [CMA-ES quadratic], [True], [#green[✓]], [], [], [Marginal gain over linear],
-    [#pilqr], [LQR], [#red[✗]], [], [], [High reward; interpretable; benchmark],
-    [Clipped #pilqr], [LQR], [#green[✓]], [], [], [Feasibility cost but feasible],
+    [#pilqr], [LQR], [#red[✗]], [0.009693], [0.019467], [High reward; interpretable; benchmark],
+    // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
     [MPC ($cal(N)=10$)], [LQR], [#green[✓]], [], [], [higher compute],
     [#pilspi], [True], [#red[✗]], [], [], [near-LQR on true model],
     [#pilspepi], [LQR], [#red[✗]], [], [], [LSPE+PI converges to #Klqr on approx model],
+    [$Q_lambda$], [], [],[0.000011], [0.000019],  [],
+    [E-PIA], [], [],[0.009651], [0.019584], [],
   )
 
   #policy-table
@@ -454,6 +455,8 @@
   - Q-$lambda$ instability at large $lambda$ ⇒ reduce learning rate $alpha$
   - average-reward evaluation needs $eta$ ⇒ Poisson/LSPE directly estimates it
 ]
+= Conclusion
+
 
 == The end
 #slide[

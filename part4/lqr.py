@@ -124,10 +124,21 @@ def stage_reward_approx(x_t, u_t, xi_p_t=None):
 
 
 
-def get_lqr_policy():
-    K_lqr = compute_lqr_gain(model)
-    policy_lqr = lambda x: float(K_lqr @ x)
-    return policy_lqr
+def get_lqr_policy(model=None, clipped=False):
+    if model is None:
+        model_to_use = model
+    else:
+        model_to_use = model
+    K_lqr = compute_lqr_gain(model_to_use if model_to_use is not None else globals()['model'])
+    
+    def lqr_policy(x):
+        result = K_lqr @ x
+        u = float(result.item()) if hasattr(result, 'item') else float(result)
+        if clipped:
+            u = float(np.clip(u, -x[0], 1 - x[0]))
+        return u
+    
+    return lqr_policy
 
 
 if __name__ == "__main__":

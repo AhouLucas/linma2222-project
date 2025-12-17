@@ -33,3 +33,21 @@ def compute_E_PIA(model, max_iterations=1000, tolerance=1e-10, K_init=[-0.5, 0.5
 
     return K_list
 
+
+def get_epia_policy(model=None, clipped=False):
+    if model is None:
+        from lqr import model as model_matrices
+        model = model_matrices
+    
+    K_list = compute_E_PIA(model, max_iterations=1000, tolerance=1e-15, K_init=[-0.5, 0.5, 0.5])
+    K_epia = K_list[-1]
+    
+    def epia_policy(x):
+        result = K_epia @ x
+        u = float(result.item()) if hasattr(result, 'item') else float(result)
+        if clipped:
+            u = float(np.clip(u, -x[0], 1 - x[0]))
+        return u
+    
+    return epia_policy
+

@@ -39,6 +39,8 @@ def get_cma(recompute=False):
 
 
 
+
+
 # 17 minutes
 
 
@@ -69,6 +71,15 @@ def get_cma_quadratic(recompute=False):
     return best_params_cma_quadratic, best_policy_cma_quadratic
 # 21 min
 
+
+
+def get_cma_policy(recompute=False):
+    _, policy = get_cma(recompute=recompute)
+    return policy
+
+def get_cma_quadratic_policy(recompute=False):
+    _, policy = get_cma_quadratic(recompute=recompute)
+    return policy
 
 
 #### SCIPY NOT WORKING WELL

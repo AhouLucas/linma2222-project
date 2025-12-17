@@ -30,7 +30,7 @@ def model_step(x, u, xi_a=None):
 
 def generate_trajectories(policy, x0=(0, 0, 0), T=1000, N=1,
                           model_step_fn=model_step,xi_a=None,xi_p=None,
-                          show_progress=False):
+                          show_progress=False, desc="Generating trajectories"):
     """Generate the state variables x_t and actions u_t for t=0,...,T
        using the given policy and one–step model.
     """
@@ -53,7 +53,7 @@ def generate_trajectories(policy, x0=(0, 0, 0), T=1000, N=1,
 
     time_iter = range(T)
     if show_progress:
-        time_iter = tqdm(time_iter, desc="Generating trajectories")
+        time_iter = tqdm(time_iter, desc=desc)
 
     for t in time_iter:
         for i in range(N):
