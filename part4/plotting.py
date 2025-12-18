@@ -291,16 +291,29 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, n_traj_mpc=1, T=
         rewards_by_traj = np.nanmean(reward(x, u, xi_p, T), axis=0)
         # all_rewards[i] = rewards_by_traj
         all_rewards[i, :len(rewards_by_traj)] = rewards_by_traj
-        print(f"{policy_list[i][1]:30s}  Number of trajectories = {x.shape[2]}, trajectory length = {x.shape[0]}, reward shape = {reward(x, u, xi_p, T).shape}, avg reward shape = {np.nanmean(reward(x, u, xi_p, T), axis=0).T.shape}, number of non nan rewards = {np.sum(~np.isnan(all_rewards[i]))}")
+        # print(f"{policy_list[i][1]:30s}  Number of trajectories = {x.shape[2]}, trajectory length = {x.shape[0]}, reward shape = {reward(x, u, xi_p, T).shape}, avg reward shape = {np.nanmean(reward(x, u, xi_p, T), axis=0).T.shape}, number of non nan rewards = {np.sum(~np.isnan(all_rewards[i]))}")
         # print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
 
 
     print(f"\nPOLICY REWARD SUMMARY: (constrained={constrained})")
-    mean_rewards = [(name, np.nanmean(all_rewards[i]), np.nanstd(all_rewards[i]), np.sum(~np.isnan(all_rewards[i]))) for i, (policy, name) in enumerate(policy_list)]
+    mean_rewards = [(f_name, np.nanmean(all_rewards[i]), np.nanstd(all_rewards[i]), np.sum(~np.isnan(all_rewards[i]))) for i, (policy, f_name) in enumerate(policy_list)]
     mean_rewards.sort(key=lambda x: x[1], reverse=True)
-    for name, mean_reward, std_reward, count in mean_rewards:
-        print(f"  Policy: {name:20s} | Mean Reward: {mean_reward:10.6f} | Std Dev: {std_reward:10.6f} | Samples: {count}")
+    for f_name, mean_reward, std_reward, count in mean_rewards:
+        print(f"  Policy: {f_name:20s} | Mean Reward: {mean_reward:10.6f} | Std Dev: {std_reward:10.6f} | Samples: {count}")
     
+    # bar plot of the mean rewards with error bars
+    plt.figure(figsize=(10, 6))
+    labels = [mean_rewards[i][0] for i in range(len(mean_rewards))]
+    means = [mean_rewards[i][1] for i in range(len(mean_rewards))]
+    stds = [mean_rewards[i][2] for i in range(len(mean_rewards))]
+    plt.bar(labels, means, yerr=stds, capsize=5, color='skyblue', alpha=0.7)
+    plt.ylabel('Average Reward')
+    plt.title('Average Rewards for Different Policies' + title_suffix)
+    plt.grid(axis='y')
+    plt.xticks(rotation=30, ha='right', fontsize=6)
+    plt.savefig(f"figures/policy_comparison_bar_{name}.svg", format='svg')
+
+
     # plot all the rewards
     plt.figure(figsize=(10, 6))
     labels = [policy_list[i][1] for i in range(len(policy_list))]

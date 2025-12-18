@@ -39,7 +39,6 @@ from lqr import compute_lqr_gain, model as model_matrices
 def create_all_policies(): # Create and return a dictionary of all policies to compare.
     policies = {}
     
-    # ----- 1. Baseline Policies -----
     GREEN = "\033[92m"
     print(GREEN + "LOADING POLICIES:" + "\033[0m")
     policy_cl = lambda x: float(K_cl @ x)
@@ -53,31 +52,36 @@ def create_all_policies(): # Create and return a dictionary of all policies to c
     # policies["Random"] = random_policy
 
     
-    # ----- 2. CMA-ES Optimized Policy -----
     from best_policy import get_cma_policy, get_cma_quadratic_policy
     policies["CMA-ES Linear"] = get_cma_policy()
     # policies["CMA-ES Quadratic"] = get_cma_quadratic_policy()
 
     
-    # ----- 3. LQR Optimal Policy -----
     from lqr import get_lqr_policy
     policies["LQR"] = get_lqr_policy(model=model_matrices)
-    policies["LQR Clipped"] = get_lqr_policy(model=model_matrices, clipped=True)
+    # policies["LQR Clipped"] = get_lqr_policy(model=model_matrices, clipped=True)
     
-    # ----- 4. MPC Policy -----
     from mpc_condensed import get_mpc_policy
     policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
     # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
     
-    # ----- 5. E-PIA Policy -----
 
     from e_pia import get_epia_policy
     policies["E-PIA"] = get_epia_policy(model=model_matrices)
 
-    # ----- 6. Q-λ Learning Policy -----
     from Q_lambda import get_q_lambda_policy
     policies["Q-λ (True Sys)"] = get_q_lambda_policy(use_precomputed=True)
-    
+
+
+    # LSTD
+
+    # LSPE+PI
+    from q85_86_87_88_89 import get_policies_lspe_pi
+    pi_lspepi, pi_lspepi_ap, pi_lspepi_constr = get_policies_lspe_pi()
+    policies["LSPE+PI (True Sys)"] = pi_lspepi
+    policies["LSPE+PI (Approx Sys)"] = pi_lspepi_ap
+    policies["LSPE+PI (Constr.)"] = pi_lspepi_constr
+
 
     return policies
 
@@ -98,6 +102,7 @@ def compare_all_policies(policy_list, N=1000, T=1000, x0=(0, 0, 0), save_prefix=
 def main():
     """Main function to run all comparisons."""
     import argparse
+    np.random.seed(42)
     
     parser = argparse.ArgumentParser(description="Compare all Part 4 models")
     parser.add_argument("--quick", action="store_true", help="Quick mode: fewer trajectories", default=False)
@@ -120,7 +125,7 @@ def main():
     # Set N and T based on quick mode
     N = 100 if args.quick else 5000
     T = 200 if args.quick else 1000
-    n_traj_mpc = 2
+    n_traj_mpc = 2 if args.quick else 50
     
     # Compare without constraints (standard evaluation)
     policy_list = [(policy, name) for name, policy in policies.items()]

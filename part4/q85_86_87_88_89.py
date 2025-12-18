@@ -533,6 +533,7 @@ def lspe_pi(initial_policy, psi,model_step, stage_reward,
         avg_reward = get_avg_reward(policy, T=100, N=50)
         print(f"  -> avg reward of new policy: {avg_reward} (N=50)")
 
+
     return policy, theta_Q_last, eta_hat_last, np.array(K_list), policies
 
 
@@ -651,6 +652,8 @@ def q8_7_d4():
     policy_list.append((pi_lspepi, "LSPE+PI (Unconstrained, True System, psi d4)"))
     plot_reward_distribution( policy_list, name="Q8_7_reward_distribution_d4", T=1000, n_traj=100)
 
+    return pi_lspepi, theta_Q_last
+
 
 
 def q8_7():
@@ -687,7 +690,7 @@ def q8_7():
 
     policy_list.append((pi_lspepi, "LSPE+PI (Unconstrained, True System)"))
     plot_reward_distribution( policy_list, name="Q8_7", T=1000, n_traj=1000)
-
+    return pi_lspepi, theta_Q_last
 
 def q8_8(): # approx model, 
     print("=== QUESTION 8.8: LSPE+PI on approximate model, evaluate on true system ===")
@@ -716,6 +719,7 @@ def q8_8(): # approx model,
     # for i, pol in enumerate(policies):
     #     avg_reward = get_avg_reward(pol, T=1000, N=200)
     #     print(f"Policy {i} average reward on TRUE system: {avg_reward}")
+    return pi_lspepi_ap, theta_Q_ap_last
 
 
 
@@ -742,6 +746,19 @@ def q8_9(): # constrained improvement on true system
     plot_reward_distribution( policy_list, name="Q8_9", T=1000, n_traj=1000)
     plot_reward_distribution( policy_list, name="Q8_9_constrained", T=1000, n_traj=1000, constrained=True)
 
+    return pi_lspepi_constr, theta_Q_last_c
+
+def get_policies_lspe_pi():
+    # load the saved theta_Q values
+    data = np.load("lspe_pi_thetas.npz")
+    theta_Q_last = data["theta_Q_true"]
+    theta_Q_ap_last = data["theta_Q_approx"]
+    theta_Q_last_c = data["theta_Q_constrained"]
+
+    pi_lspepi = greedy_policy_from_theta_d2_scaled(theta_Q_last, None, constrained=False)
+    pi_lspepi_ap = greedy_policy_from_theta_d2_scaled(theta_Q_ap_last, None, constrained=False)
+    pi_lspepi_constr = greedy_policy_from_theta_d2_scaled(theta_Q_last_c, None, constrained=True)
+    return pi_lspepi, pi_lspepi_ap, pi_lspepi_constr
 
 
 if __name__ == "__main__":
@@ -766,10 +783,16 @@ if __name__ == "__main__":
     q8_5()
     check_Q_exact_vs_Q_hat()
     q8_6()
-    q8_7()
+    pi_lspepi, theta_Q_last = q8_7()
     # q8_7_d4() # not really working yet
 
-    q8_8()
-    q8_9()
+    pi_lspepi_ap, theta_Q_ap_last = q8_8()
+    pi_lspepi_con, theta_Q_last_c = q8_9()
     
-    plt.show()
+
+    # save thetha_Q_last, theta_Q_ap_last, theta_Q_last_c
+    np.savez("lspe_pi_thetas.npz",
+        theta_Q_true=theta_Q_last,
+        theta_Q_approx=theta_Q_ap_last,
+        theta_Q_constrained=theta_Q_last_c,
+    )
