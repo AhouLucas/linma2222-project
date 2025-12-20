@@ -10,7 +10,7 @@
   aspect-ratio: "16-9",
   config-common(frozen-counters: (theorem-counter,)),
   config-info(
-    title: [LINMA2222 Project Presentation],
+    title: [LINMA2222 - Stochastic Optimal Control & RL],
     subtitle: [Optimal Portfolio Strategy],
     author: [Lucas Ahou • Aymeric Couplet],
     date: datetime.today(),
@@ -122,10 +122,10 @@
   Increasing $"Var"(g_t)$ decreases $EE[c(g_t)]$.
   
 ][
-#figure(
-    image("figures/plot_q2.4.svg", width: 100%),
-    caption: [$EE[c(g)]$ decreases as variance increases (empirical)]
-  )
+// #figure(
+//     image("figures/plot_q2.4.svg", width: 100%),
+//     caption: [$EE[c(g)]$ decreases as variance increases (empirical)]
+//   )
   #speaker-note[
     - risk aversion: big swings are penalized
     - motivates more “stable” strategies
@@ -151,10 +151,10 @@
   #red[Issue]
   - can make $q_t < 0$ (shorting) → infeasible in our setting
 
-  #figure(
-    image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
-    caption: [Example trajectory under #picl]
-  )
+  // #figure(
+  //   image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
+  //   caption: [Example trajectory under #picl]
+  // )
 ]
 
 #slide[
@@ -166,14 +166,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/clipped_policy_ex_trajectory_states_actions.svg", width: 100%),
-      caption: [States & action (plateaux = saturation)]
-    ),
-    figure(
-      image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Reward drops correlate with saturation]
-    ),
+    // figure(
+    //   image("figures/clipped_policy_ex_trajectory_states_actions.svg", width: 100%),
+    //   caption: [States & action (plateaux = saturation)]
+    // ),
+    // figure(
+    //   image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
+    //   caption: [Reward drops correlate with saturation]
+    // ),
   )
 ]
 
@@ -193,10 +193,10 @@
 
 ][
 
-  #figure(
-    image("figures/policy_comparison_histogram_first_three.svg", width: 100%),
-    caption: [Reward comparison: baseline vs CMA-ES policies]
-  )
+  // #figure(
+  //   image("figures/policy_comparison_histogram_first_three.svg", width: 100%),
+  //   caption: [Reward comparison: baseline vs CMA-ES policies]
+  // )
 ]
 
 = Model-based control
@@ -239,14 +239,14 @@
 ][
   #grid(
     rows: (1fr, 1fr),
-    figure(
-      image("figures/lqr_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
-      // caption: [States & action]
-    ),
-    figure(
-      image("figures/lqr_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
-      // caption: [Average reward]
-    ),
+    // figure(
+    //   image("figures/lqr_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
+    //   // caption: [States & action]
+    // ),
+    // figure(
+    //   image("figures/lqr_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
+    //   // caption: [Average reward]
+    // ),
   )
 ]
 
@@ -263,134 +263,361 @@
 ][
   #grid(
     rows: (1fr, 1fr),
-    figure(
-      image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [Clipped LQR reward distribution]
-    ),
-    figure(
-      image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [MPC reward distribution]
-    ),
+    // figure(
+    //   image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+    //   caption: [Clipped LQR reward distribution]
+    // ),
+    // figure(
+    //   image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+    //   caption: [MPC reward distribution]
+    // ),
   )
 ]
 
-= RL / ADP (Parts III)
+= Policy Improvement (Part III)
 
-== LSTD and LSPI (Parts III: Q6.3–Q6.7)
+== Exact Policy Iteration Algorithm (E-PIA) (Q5)
 #slide[
-  #title[LSTD and LSPI]
+  #title[E-PIA on LQR model]
 
-  #blue[Policy evaluation]
-  Fit $Q^theta(x,u) approx theta^top psi(x,u)$ using LSTD from exploration data.
+  #blue[Policy iteration steps]
+  1. *Evaluation:* Solve Lyapunov equation for $P_k$:
+  $ P_k = Q_k + A_k^top P_k A_k $
+  where $A_k = F + G K_k$, $Q_k = Q + S K_k + (S K_k)^top + K_k^top R K_k$
 
-  #v(0.2em)
-  #blue[Policy improvement]
-  Greedy step: $pi(x)=arg max_u Q^theta(x,u)$ ⇒ iterate (LSPI).
+  2. *Improvement:* Update gain:
+  $ K_(k+1) = -(R + G^top P_k G)^(-1)(S^top + G^top P_k F) $
 
-  #v(0.2em)
-  #green[Result on the true reward model]
-  LSPI improves over #picl and can be competitive.
+]
+
+== E-PIA Results (Q5)
+#slide(composer: (1fr, 1fr))[
+  #title[E-PIA convergence]
+
+  #green[Results]
+  - Starting from #picl, converges to #Klqr in $approx 6$ iterations
+  - Confirms that Riccati-based LQR is optimal for the quadratic model
+
+  #v(0.3em)
+  #blue[Learned gain]
+  $ K_"lqr" approx mat(1.112, -2.649, -2.528) $
 ][
+  // #grid(
+  //   rows: (1fr, 1fr),
+  //   figure(
+  //     image("../../part3/figures/q64_policy_convergence.png", width: 80%),
+  //     caption: [Gain components $K_k$ over iterations]
+  //   ),
+  //   figure(
+  //     image("../../part3/figures/q63_policy_rewards.png", width: 80%),
+  //     caption: [Cumulative reward comparison]
+  //   ),
+  // )
   #figure(
-    image("figures/q63_policy_rewards.png", width: 100%),
-    caption: [Rewards: #picl vs #pilqr vs #pilspi]
+    image("../../part3/figures/q64_policy_convergence.png", width: 100%),
   )
 ]
 
-== Q-$lambda$ learning (Parts III: Q7)
+== LSTD: Least-Squares Temporal Difference (Q6.3–Q6.4)
 #slide[
-  #title[Q-$lambda$ learning]
+  #title[LSTD for policy evaluation]
 
-  #blue[On LQR approximate model]
-  - learned gains move toward #Klqr
-  - $lambda$ increases speed but may cause instability unless step-size is reduced
+  #blue[Objective]
+  Approximate the Q-function under a fixed policy $pi$:
+  $ Q^pi (x,u) approx theta^top psi(x,u) $
+
+  #v(0.2em)
+  #blue[LSTD update]
+  Solve for $theta$ using instrumental variables:
+  $ theta = [1/N W + R_N]^(-1) phi.alt_N $
+  where:
+  $ R_N = 1/N sum_(i=1)^N psi_i (psi_i - psi'_i)^top quad quad phi.alt_N = 1/N sum_(i=1)^N c_i psi_i $
+]
+
+== LSTD: Design Choices & Results
+#slide(composer: (1fr, 1fr))[
+  #title[LSTD for true model]
+
+  #red[Key design choices]
+  - *Degree-4 polynomial basis*: cost contains exponential term
+  - *No bias term*: undiscounted setting, $Q(0,0)=0$
+  - *Regularization*: $(R_N + epsilon I)$ for numerical stability
+  - *Large $N$*: $N = 3000$ samples for well-conditioned matrix
+
+  #v(0.3em)
+  #green[Results]
+  - Good match with Monte-Carlo estimates on true system
 ][
   #v(0.2em)
+
+  #figure(
+    image("../../part3/figures/q63_lspd_vs_qhat.png", width: 100%),
+    caption: [True system: $Q^theta$ vs $hat(Q)_"MC"$]
+  )
+]
+
+
+== LSTD: Design Choices & Results
+#slide(composer: (1fr, 1fr))[
+  #title[LSTD for LQR model]
+
+  #red[Key design choices]
+  - *Degree-2 polynomial basis*: $Q_"exact"$ is quadratic
+
+  #v(0.3em)
+  #green[Results]
+  - Perfect match with the exact $Q$-function
+][
+  #v(0.2em)
+
+  #figure(
+  image("../../part3/figures/q64_lspd_vs_qhat.png", width: 100%),
+  caption: [LQR model: $Q^theta$ vs $Q_"exact"$]
+)
+]
+
+
+
+== LSPI: Least-Squares Policy Iteration (Q6.5–Q6.7)
+#slide(composer: (1fr, 1fr))[
+  #title[LSPI algorithm]
+
+  #blue[Iterate:]
+  1. *Evaluation:* LSTD → $theta_k$
+  2. *Improvement:* Find greedy policy w.r.t. $Q^(theta_k)$
+
+  #v(0.2em)
+  #blue[Policy improvement step]
+  For linear policy $u = -K x$:
+  - Sample states $x_s in [-1,1]^3$
+  - Optimize: $u^*_s = arg max_u theta^top psi(x_s, u)$
+  - Fit: $K_(k+1) = (X^top X)^(-1) X^top (-U^*)$
+
+][
+  #v(0.2em)
+  #figure(
+    grid(
+      rows: (auto, auto),
+      image("../../part3/figures/q64_policy_convergence.png", width: 80%),
+      image("../../part3/figures/q63_policy_rewards.png", width: 80%),
+    )
+  )
+]
+
+== Q-$lambda$ Learning (Q7)
+#slide(composer: (1fr, 1fr))[
+  #title[Q-$lambda$: online temporal-difference]
+
+  #blue[Algorithm]
+  - Quadratic features: $psi(x,u) = "vec"([x;u][x;u]^top)$
+  - $zeta_(t+1) = lambda zeta_t + psi_t$
+  - TD error: $cal(D)_t = c_t + Q_(t+1) - Q_t$
+  - Update: $theta <- theta + alpha cal(D)_t zeta_t$
+
+  #v(0.2em)
+  #blue[Effect of $lambda$]
+  - $lambda = 0$: one-step TD (slow but stable)
+  - $lambda arrow 1$: Monte-Carlo-like (faster but can diverge)
+
+][
   #figure(
     image("figures/convergence_during_Q-λ_Learning_for_different_λ.svg", width: 100%),
-    caption: [Effect of $lambda$ on convergence / instability]
+    caption: [Convergence to #Klqr for different $lambda$]
   )
 ]
 
-== Q-$lambda$ on the true (deterministic) system
-#slide[
-  #title[Q-$lambda$ on true system]
+== Q-$lambda$ Results
+#slide(composer: (1fr, 1fr))[
+  #title[Q-$lambda$ performance]
 
-  #muted[
-    Deterministic true system stabilizes to $(0,0,0)$, so gains occur mainly early in the episode.
-  ]
+  #blue[Convergence]
+  - Converges to #Klqr for LQR settings
+  - Higher $lambda$ → faster convergence (with tuned $alpha$)
+
+  #v(0.3em)
+  #blue[Reward for deterministic system]
+  - $pi_(Q(lambda))$ less risky\ $==>$ less profit in some cases
 ][
   #figure(
-    image("figures/policy_comparison_histogram_Q-7-2.svg", width: 100%),
-    caption: [Average reward comparison on deterministic true system]
+    grid(
+      rows: (auto, auto),
+      image("figures/q_lambda_true_system_x0_1_average_reward.svg"),
+      image("figures/q_lambda_true_system_x0_2_average_reward.svg")
+    )
   )
 ]
 
-= Mean Poisson error (Part IV)
-
-== Poisson error vs Bellman error (why LSPE)
+== Part III Summary
 #slide[
-  #title[Poisson error & LSPE motivation]
 
-  #blue[Average-reward setting → Poisson error]
-  $cal(P)^theta(x,u) = EE[r + Q^theta(x^+,pi(x^+)) | x,u] - eta^theta - Q^theta(x,u)$
+  #table(
+    columns: (1.2fr, 1.2fr, 0.8fr, 2.5fr),
+    align: (left, center, center, left),
+    [*Method*], [*Model needed*], [*Online*], [*Key insight*],
+    [E-PIA], [Yes (full)], [No], [Exact convergence to #Klqr via Lyapunov + improvement],
+    [LSTD], [No], [No], [Basis: degree-4 for true, degree-2 for LQR],
+    [LSPI], [No], [No], [Iterate: LSTD evaluation + greedy improvement],
+    [Q-$lambda$], [No], [Yes], [$lambda$ controls bias-variance: higher $lambda$ → faster but needs smaller $alpha$],
+  )
 
-  #v(0.2em)
+  #green[Takeaways]
+  - E-PIA: model-based benchmark, converges in ~6 iterations
+  - LSTD/LSPI: model-free, basis choice critical (degree-4 for true reward)
+  - Q-$lambda$: online learning, $pi_(Q_lambda)$ is more conservative (less risky, less profit)
+]
+
+= LSPE for Average-Reward (Part IV)
+
+== Motivation: Poisson vs Bellman Error
+#slide[
+  #title[Why LSPE for average-reward?]
+
   #blue[Discounted setting → Bellman error]
-  $cal(B)^theta(x,u) = EE[r + gamma Q^theta(x^+,pi(x^+)) | x,u] - Q^theta(x,u)$
+  $ cal(B)^(theta)(x,u) = EE[r + gamma Q^(theta)(x',pi(x')) | x,u] - Q^(theta)(x,u) $
 
   #v(0.3em)
-  #green[Takeaway]
-  Since our project is average-reward, #emph[Poisson error is the natural consistency condition].
-]
+  #blue[Average-reward setting → Poisson error]
+  $ cal(P)^(theta)(x,u) = EE[r + Q^(theta)(x',pi(x')) | x,u] - eta^theta - Q^(theta)(x,u) $
 
-== LSPE evaluation (Part IV: Q8.5–Q8.6)
-#slide[
-  #title[LSPE policy evaluation]
-
-  #blue[Kernel approximation]
-  Use a finite-support (Monte Carlo) approximation of the transition kernel.
-
-][
-  #grid(
-    columns: (1fr, 1fr),
-    figure(
-      image("../../fig_in_git/comparison_Q8.5:_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 100%),
-      caption: [True system: $Q_"LSPE"$ vs Monte-Carlo estimate]
-    ),
-    figure(
-      image("../../fig_in_git/comparison_Q8.6:_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model).svg", width: 100%),
-      caption: [LQR model: $Q_"LSPE"$ vs exact $Q$]
-    ),
-  )
-]
-
-== LSPE+PI (Part IV: Q8.7–Q8.8) + constrained PI (Q8.9)
-#slide[
-  #title[LSPE+PI and constraint effects]
-
-  #blue[LSPE+PI]
-  - start from #picl
-  - alternate evaluation (LSPE) + improvement
-  - on LQR model: gain converges quickly to #Klqr
-][
   #v(0.3em)
-  #grid(
-    columns: (1fr, 1fr),
-    figure(
-      image("../../fig_in_git/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 100%),
-      caption: [Gain convergence to #Klqr]
-    ),
-    figure(
-      image("../../fig_in_git/policy_comparison_histogram_Q8_7.svg", width: 100%),
-      caption: [Rewards: #picl vs #pilqr vs #pilspepi]
-    ),
-  )
+  #green[Key difference]
+  - No discount factor $gamma$ → need to subtract average reward $eta$
+  - LSPE minimizes mean squared Poisson error
+  - Jointly estimates $theta$ (Q-parameters) and $eta$ (average reward)
+]
+
+== LSPE Algorithm (Q8.5–Q8.6)
+#slide[
+  #title[Least-Squares Policy Evaluation]
+
+  #blue[Objective]
+  Find $theta = [theta_Q; eta]$ that minimizes:
+  $ min_theta EE[(cal(P)^(theta)(x,u))^2] $
 
   #v(0.2em)
-  #muted[
-    With constrained PI, saturation increases; unconstrained PI can look worse unless all policies are constrained for fair comparison.
-  ]
+  #blue[LSPE solution]
+  Define $phi_k = [EE[psi'] - psi_k; -1]$, then solve:
+  $ A theta = b quad "where" quad A = EE[phi phi^top], quad b = -EE[phi dot r] $
+
+  #v(0.2em)
+  #red[Implementation]
+  - Monte-Carlo approximation of $EE[psi(x', pi(x'))]$
+  - Regularization: $(A + lambda I)$ for stability
+  - Quadratic basis $psi$: 14 features (no constant term)
+]
+
+== LSPE Results: Policy Evaluation
+#slide(composer: (1fr, 1fr))[
+  #title[Q8.5–Q8.6: Evaluating #picl]
+
+  #blue[Q8.5: True system]
+  - LSPE matches Monte-Carlo $hat(Q)$
+  - Validates the Poisson formulation
+
+  #v(0.3em)
+  #blue[Q8.6: LQR approximate model]
+  - LSPE matches exact $Q_"LQR"$
+  - Confirms correctness of implementation
+][
+  #figure(
+    grid(
+      rows: (auto, auto),
+      image("../../fig_in_git/comparison_Q8.5:_Q_mathrmLSPE_vs_hat_Q_mathrmMC_(Poisson).svg", width: 70%),
+      image("../../fig_in_git/comparison_Q8.6:_Q_mathrmLSPE_(Approx_Model)_vs_Q_mathrmExact_(LQR_Model).svg", width: 70%),
+
+    )
+    
+  )
+]
+
+== LSPE + Policy Iteration (Q8.7–Q8.8)
+#slide[
+  #title[LSPE+PI algorithm]
+
+  #blue[Iterate:]
+  1. *Data collection:* Explore with current policy + noise ($sigma_"exp" = 0.02$)
+  2. *Evaluation:* LSPE → $theta_Q$, $eta$
+  3. *Improvement:* Greedy policy from $Q^theta$
+
+  #v(0.2em)
+  #blue[Greedy policy extraction]
+  For quadratic $Q(x,u) = dots + b(x) u + a u^2$:
+  $ u^* = -b(x) / (2a) $
+
+  #v(0.2em)
+  #red[Two settings tested]
+  - Q8.7: Train & evaluate on *true system*
+  - Q8.8: Train on *LQR model*, evaluate on true system
+]
+
+== LSPE+PI Results (Q8.7–Q8.8)
+#slide(composer: (1fr, 1fr))[
+  #title[Convergence and performance]
+
+  #green[Q8.8: LQR model]
+  - Gain $K$ converges to #Klqr in _few_ iterations
+  - Confirms LSPE+PI recovers optimal LQR policy
+
+  #v(0.3em)
+  #green[Q8.7: True system]
+  - Similar performance as $K_"lqr"$
+][
+  #figure(
+    grid(
+      rows: (auto, auto),
+      
+      image("../../fig_in_git/convergence_during_LSPE+PI_on_Approx_Model.svg", width: 90%),      
+      image("../../fig_in_git/policy_comparison_histogram_Q8_8.svg", width: 90%),
+
+      ),
+    )
+]
+
+== Constrained Policy Improvement (Q8.9)
+#slide(composer: (1fr, 1fr))[
+  #title[Enforcing $q in [0,1]$]
+
+  #blue[Constrained improvement]
+  $ u^* = arg max_(u in [-q, 1-q]) Q^theta(x, u) $
+
+  #v(0.2em)
+  #red[Effect of constraints]
+  - Saturation episodes reduce reward
+  - Unconstrained policies look better... but are infeasible!
+
+  #v(0.2em)
+  #green[Fair comparison]
+  - Compare all policies under same constraint
+  - Constrained LSPE+PI competitive with clipped LQR
+][
+  #figure(
+    grid(
+      rows: (auto, auto),
+      image("../../fig_in_git/policy_comparison_histogram_Q8_9.svg", width: 90%),
+      image("../../fig_in_git/policy_comparison_histogram_Q8_9_constrained.svg", width: 90%),
+    ),
+    caption: [Unconstrained (above) & Constrained (below)]
+  )
+]
+
+== Part IV Summary
+#slide[
+  #table(
+    columns: (1.5fr, 1.5fr, 2fr),
+    align: (left, center, left),
+    [*Question*], [*Setting*], [*Key result*],
+    [Q8.5], [True system], [$Q_"LSPE" approx hat(Q)_"MC"$ — validates Poisson formulation],
+    [Q8.6], [LQR model], [$Q_"LSPE" approx Q_"exact"$ — confirms implementation],
+    [Q8.7], [LSPE+PI, true], [Converges to near-optimal policy],
+    [Q8.8], [LSPE+PI, LQR], [Recovers #Klqr exactly],
+    [Q8.9], [Constrained PI], [Saturation reduces reward; fair comparison needed],
+  )
+
+  #v(0.3em)
+  #green[Takeaways]
+  - LSPE naturally handles average-reward setting via Poisson error
+  - Joint estimation of $theta_Q$ and $eta$ (average reward)
+  - Constraint handling requires care in both improvement and evaluation
 ]
 
 = Model Comparison
@@ -536,14 +763,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/unclipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-      caption: [Unclipped baseline]
-    ),
-    figure(
-      image("figures/clipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-      caption: [Clipped baseline]
-    ),
+    // figure(
+    //   image("figures/unclipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
+    //   caption: [Unclipped baseline]
+    // ),
+    // figure(
+    //   image("figures/clipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
+    //   caption: [Clipped baseline]
+    // ),
   )
 ]
 
@@ -553,14 +780,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/lqr_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [Unclipped LQR]
-    ),
-    figure(
-      image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [Clipped LQR]
-    ),
+    // figure(
+    //   image("figures/lqr_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+    //   caption: [Unclipped LQR]
+    // ),
+    // figure(
+    //   image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+    //   caption: [Clipped LQR]
+    // ),
   )
 ]
 
@@ -570,10 +797,10 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
-      caption: [Example MPC states/actions]
-    ),
+    // figure(
+    //   image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
+    //   caption: [Example MPC states/actions]
+    // ),
     // figure(
     //   image("figures/mpc_optimal_policy_cumulative_reward_100_trajectories.svg", width: 100%),
     //   caption: [MPC average reward over 100 sims]
@@ -587,14 +814,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/EPIA_convergence.svg", width: 100%),
-      caption: [Error norm to #Klqr]
-    ),
-    figure(
-      image("figures/EPIA_K_values.svg", width: 100%),
-      caption: [$K_k$ components]
-    ),
+    // figure(
+    //   image("figures/EPIA_convergence.svg", width: 100%),
+    //   caption: [Error norm to #Klqr]
+    // ),
+    // figure(
+    //   image("figures/EPIA_K_values.svg", width: 100%),
+    //   caption: [$K_k$ components]
+    // ),
   )
 ]
 
@@ -604,10 +831,10 @@
 
   #grid(
     columns: (1fr, 1fr),
-    figure(
-      image("figures/q63_lspd_vs_qhat.png", width: 100%),
-      caption: [True system: $Q^theta$ vs $\hat Q$]
-    ),
+    // figure(
+    //   image("figures/q63_lspd_vs_qhat.png", width: 100%),
+    //   caption: [True system: $Q^theta$ vs $\hat Q$]
+    // ),
     // figure(
     //   image("figures/q64_lspd_vs_qhat.png", width: 100%),
     //   caption: [LQR model: $Q^theta$ vs exact/empirical $Q$]
@@ -625,10 +852,10 @@
     //   image("figures/q64_policy_convergence.png", width: 100%),
     //   caption: [LSPI gain converges to #Klqr]
     // ),
-    figure(
-      image("figures/q67_policy_rewards.png", width: 100%),
-      caption: [Constrained PI can reduce reward]
-    ),
+    // figure(
+    //   image("figures/q67_policy_rewards.png", width: 100%),
+    //   caption: [Constrained PI can reduce reward]
+    // ),
   )
 ]
 
