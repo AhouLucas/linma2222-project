@@ -63,6 +63,7 @@ def create_all_policies(): # Create and return a dictionary of all policies to c
     
     from mpc_condensed import get_mpc_policy
     policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
+    policies["MPC (N=100)"] = get_mpc_policy(N=100, model=model_matrices)
     # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
     
 
