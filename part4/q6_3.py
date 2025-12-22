@@ -8,19 +8,26 @@ from model import generate_trajectories
 N = 3000   # Increase N for better stability with high-degree polynomials
 N1 = 8  # no. of iterations for policy improvement
 
-W_A = 0.1
-W_U = 0.2
-BETA_U = -0.048
-GAMMA_U = 0.06
-THETA = 0.5
-SIGMA_P = 0.02
+# W_A = 0.1
+# W_U = 0.2
+# BETA_U = -0.048
+# GAMMA_U = 0.06
+# THETA = 0.5
+# SIGMA_P = 0.02
 
-A = np.array([[1, 0, 0],
-              [0, 1 - W_A, 0], 
-              [0, 0, 1 - W_U]])
-B = np.array([[1],
-              [0],
-              [W_U * BETA_U]])
+# A = np.array([[1, 0, 0],
+#               [0, 1 - W_A, 0], 
+#               [0, 0, 1 - W_U]])
+# B = np.array([[1],
+#               [0],
+#               [W_U * BETA_U]])
+
+from model import W_A, W_U, BETA_U, GAMMA_U, THETA, SIGMA_P
+from lqr import model
+# model = (F, G, H, E, D, Q, R, S)
+F, G, H, E, D, Q, R, S = model
+A = F
+B = G
 
 K_cl = -np.array([-0.5, 0.5, 0.5])
 K_lqr = np.array([1.11182191, -2.64863317, -2.52792524])
@@ -91,6 +98,7 @@ def lspd_implementation(K):
     return vecH
     
 
+from q85_86_87_88_89 import generate_dataset
 def lspi():
     K = np.zeros((3, N1+1))
     K[:, 0] = K_cl  # Initial policy
@@ -101,8 +109,14 @@ def lspi():
 
         # Policy update: Optimize Q function obtained from LSTD
         # Sample states to perform policy improvement
-        n_samples = 100 # Increased samples for better regression
-        X_sample = np.random.uniform(-1, 1, (n_samples, 3))
+        # n_samples = 100 # Increased samples for better regression
+        # X_sample = np.random.uniform(-1, 1, (n_samples, 3))
+
+        data_x, data_u, xi_p = generate_dataset(sigma_exp=0.1, T=60, burn_in=50, N=100)
+        # print(f"Dataset generated: X_sample shape {data_x.shape}, U_sample shape {data_u.shape}")
+        X_sample = data_x
+        n_samples = X_sample.shape[0]
+
         U_sample = np.zeros(n_samples)
 
         for i in range(n_samples):
@@ -235,7 +249,7 @@ def plot_rewards():
     plt.show()
 
 if __name__ == "__main__":
-    # K_lspi = lspi()
-    # print("Learned policy K_lspi:", K_lspi[:, -1])
-    # plot_lspd_vs_Q_hat()
+    K_lspi = lspi()
+    print("Learned policy K_lspi:", K_lspi[:, -1])
+    plot_lspd_vs_Q_hat()
     plot_rewards()

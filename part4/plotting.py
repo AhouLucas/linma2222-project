@@ -437,13 +437,16 @@ def plot_Xfn_vs_Yfn(X_function, Y_function, data_x=None, data_u=None, n_points=1
 
     plt.figure(figsize=(6, 6))
     ### Polyfit
-    coeffs = np.polyfit(X_vals, Y_vals, deg=1)
-    poly_fit = np.poly1d(coeffs)
-    x_fit = np.linspace(X_vals.min(), X_vals.max(), 100)
-    y_fit = poly_fit(x_fit)
-    plt.plot(x_fit, y_fit, color='red', linestyle='-', label=f"Fit: y={coeffs[0]:.2f}x + {coeffs[1]:.2f}")
-    print(f"Polyfit : y = {coeffs[0]:.4f} x + {coeffs[1]:.4f}")
-    
+    try:
+        coeffs = np.polyfit(X_vals, Y_vals, deg=1)
+        poly_fit = np.poly1d(coeffs)
+        x_fit = np.linspace(X_vals.min(), X_vals.max(), 100)
+        y_fit = poly_fit(x_fit)
+        plt.plot(x_fit, y_fit, color='red', linestyle='-', label=f"Fit: y={coeffs[0]:.2f}x + {coeffs[1]:.2f}")
+        print(f"Polyfit : y = {coeffs[0]:.4f} x + {coeffs[1]:.4f}")
+    except Exception as e:
+        print(f"Polyfit failed: {e}")
+        
     # plt.scatter(Q_lspe_vals, Q_hat_vals, s=15, alpha=0.7)
     # color by xu_sizes
     scatter = plt.scatter(X_vals, Y_vals, c=xu_sizes, s=30, cmap='viridis', alpha=0.7)

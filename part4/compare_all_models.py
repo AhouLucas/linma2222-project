@@ -41,6 +41,13 @@ def create_all_policies(): # Create and return a dictionary of all policies to c
     
     GREEN = "\033[92m"
     print(GREEN + "LOADING POLICIES:" + "\033[0m")
+
+
+    from mpc_condensed import get_mpc_policy
+    policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
+    policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
+
+
     policy_cl = lambda x: float(K_cl @ x)
     policy_cl_clipped = lambda x: np.clip(float(K_cl @ x), -x[0], 1 - x[0])
     policies["Initial CL"] = policy_cl
@@ -61,9 +68,6 @@ def create_all_policies(): # Create and return a dictionary of all policies to c
     policies["LQR"] = get_lqr_policy(model=model_matrices)
     # policies["LQR Clipped"] = get_lqr_policy(model=model_matrices, clipped=True)
     
-    from mpc_condensed import get_mpc_policy
-    policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
-    policies["MPC (N=100)"] = get_mpc_policy(N=100, model=model_matrices)
     # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
     
 
@@ -126,7 +130,7 @@ def main():
     # Set N and T based on quick mode
     N = 100 if args.quick else 5000
     T = 200 if args.quick else 1000
-    n_traj_mpc = 2 if args.quick else 50
+    n_traj_mpc = 2 if args.quick else 20
     
     # Compare without constraints (standard evaluation)
     policy_list = [(policy, name) for name, policy in policies.items()]

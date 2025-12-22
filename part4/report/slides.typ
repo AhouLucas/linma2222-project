@@ -56,7 +56,7 @@
 
 = Problem & model
 
-== Dynamics & reward (financial meaning)
+== Dynamics & reward
 #slide(composer: (1fr, 1fr))[
 
 
@@ -313,9 +313,9 @@
   //     caption: [Cumulative reward comparison]
   //   ),
   // )
-  #figure(
-    image("../../part3/figures/q64_policy_convergence.png", width: 100%),
-  )
+  // #figure(
+  //   image("../../part3/figures/q64_policy_convergence.png", width: 100%),
+  // )
 ]
 
 == LSTD: Least-Squares Temporal Difference (Q6.3–Q6.4)
@@ -351,7 +351,7 @@
   #v(0.2em)
 
   #figure(
-    image("../../part3/figures/q63_lspd_vs_qhat.png", width: 100%),
+    image("../figures/q63_lspd_vs_qhat.png", width: 100%),
     caption: [True system: $Q^theta$ vs $hat(Q)_"MC"$]
   )
 ]
@@ -371,7 +371,7 @@
   #v(0.2em)
 
   #figure(
-  image("../../part3/figures/q64_lspd_vs_qhat.png", width: 100%),
+  image("../figures/q64_lspd_vs_qhat.png", width: 100%),
   caption: [LQR model: $Q^theta$ vs $Q_"exact"$]
 )
 ]
@@ -398,8 +398,8 @@
   #figure(
     grid(
       rows: (auto, auto),
-      image("../../part3/figures/q64_policy_convergence.png", width: 80%),
-      image("../../part3/figures/q63_policy_rewards.png", width: 80%),
+      image("../figures/q64_policy_convergence.png", width: 80%),
+      image("../figures/q63_policy_rewards.png", width: 80%),
     )
   )
 ]

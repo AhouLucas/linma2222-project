@@ -235,7 +235,7 @@ def plot_rewards():
     plt.show()
 
 if __name__ == "__main__":
-    # K_lspi = lspi()
-    # print("Learned policy K_lspi:", K_lspi[:, -1])
-    # plot_lspd_vs_Q_hat()
+    K_lspi = lspi()
+    print("Learned policy K_lspi:", K_lspi[:, -1])
+    plot_lspd_vs_Q_hat()
     plot_rewards()
