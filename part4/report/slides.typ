@@ -703,7 +703,7 @@
   - Q-$lambda$ instability at large $lambda$ ⇒ reduce learning rate $alpha$
   - average-reward evaluation needs $eta$ ⇒ Poisson/LSPE directly estimates it
 ]
-= Conclusion
+// = Conclusion
 
 
 == The end
