@@ -8,7 +8,7 @@
 #import themes.metropolis: *
 #show: metropolis-theme.with(
   aspect-ratio: "16-9",
-  config-common(frozen-counters: (theorem-counter,)),
+  config-common(frozen-counters: (theorem-counter,), show-notes-on-second-screen: right),
   config-info(
     title: [LINMA2222 - Stochastic Optimal Control & RL],
     subtitle: [Optimal Portfolio Strategy],
@@ -332,10 +332,13 @@
   $ theta = [1/N W + R_N]^(-1) phi.alt_N $
   where:
   $ R_N = 1/N sum_(k=1)^N Upsilon_k Upsilon_k^top quad quad phi.alt_N = 1/N sum_(k=1)^N Upsilon_(k+1) gamma_k $
-] #speaker-note[
-  + $Upsilon_k = psi(x(k), u(k)) - psi(x(k+1), pi(x(k+1)))$
-  + $gamma_k = c(x(k), u(k))$
-]
+
+
+  #speaker-note[
+    + $Upsilon_k = psi(x(k), u(k)) - psi(x(k+1), pi(x(k+1)))$
+    + $gamma_k = c(x(k), u(k))$
+  ]
+] 
 
 == LSTD: Design Choices & Results
 #slide(composer: (1fr, 1fr))[
