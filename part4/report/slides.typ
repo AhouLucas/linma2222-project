@@ -584,7 +584,7 @@
   #title[Enforcing $q in [0,1]$]
 
   #blue[Constrained improvement]
-  $ u^* = arg max_(u in [-q, 1-q]) Q^theta(x, u) $
+  $ u^* = arg max_(u in [-q, 1-q]) Q^(theta)(x, u) $
 
   #v(0.2em)
   #red[Effect of constraints]
