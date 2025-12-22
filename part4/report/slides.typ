@@ -8,7 +8,7 @@
 #import themes.metropolis: *
 #show: metropolis-theme.with(
   aspect-ratio: "16-9",
-  config-common(frozen-counters: (theorem-counter,)),
+  config-common(frozen-counters: (theorem-counter,), show-notes-on-second-screen: right),
   config-info(
     title: [LINMA2222 - Stochastic Optimal Control & RL],
     subtitle: [Optimal Portfolio Strategy],
@@ -295,12 +295,12 @@
   #title[E-PIA convergence]
 
   #green[Results]
-  - Starting from #picl, converges to #Klqr in $approx 6$ iterations
+  - From #picl, converges to #Klqr in $approx 5$ iterations
   - Confirms that Riccati-based LQR is optimal for the quadratic model
 
   #v(0.3em)
   #blue[Learned gain]
-  $ K_"lqr" approx mat(1.112, -2.649, -2.528) $
+  $ Klqr approx mat(1.112, -2.649, -2.528) $
 ][
   // #grid(
   //   rows: (1fr, 1fr),
@@ -313,9 +313,9 @@
   //     caption: [Cumulative reward comparison]
   //   ),
   // )
-  // #figure(
-  //   image("../../part3/figures/q64_policy_convergence.png", width: 100%),
-  // )
+  #figure(
+    image("figures/EPIA_convergence_during_E-PIA_Iteration.svg", width: 100%),
+  )
 ]
 
 == LSTD: Least-Squares Temporal Difference (Q6.3–Q6.4)
@@ -331,8 +331,14 @@
   Solve for $theta$ using instrumental variables:
   $ theta = [1/N W + R_N]^(-1) phi.alt_N $
   where:
-  $ R_N = 1/N sum_(i=1)^N psi_i (psi_i - psi'_i)^top quad quad phi.alt_N = 1/N sum_(i=1)^N c_i psi_i $
-]
+  $ R_N = 1/N sum_(k=1)^N Upsilon_k Upsilon_k^top quad quad phi.alt_N = 1/N sum_(k=1)^N Upsilon_(k+1) gamma_k $
+
+
+  #speaker-note[
+    + $Upsilon_k = psi(x(k), u(k)) - psi(x(k+1), pi(x(k+1)))$
+    + $gamma_k = c(x(k), u(k))$
+  ]
+] 
 
 == LSTD: Design Choices & Results
 #slide(composer: (1fr, 1fr))[
@@ -578,7 +584,7 @@
   #title[Enforcing $q in [0,1]$]
 
   #blue[Constrained improvement]
-  $ u^* = arg max_(u in [-q, 1-q]) Q^theta(x, u) $
+  $ u^* = arg max_(u in [-q, 1-q]) Q^(theta)(x, u) $
 
   #v(0.2em)
   #red[Effect of constraints]
@@ -588,7 +594,6 @@
   #v(0.2em)
   #green[Fair comparison]
   - Compare all policies under same constraint
-  - Constrained LSPE+PI competitive with clipped LQR
 ][
   #figure(
     grid(
@@ -701,7 +706,7 @@
   - Q-$lambda$ instability at large $lambda$ ⇒ reduce learning rate $alpha$
   - average-reward evaluation needs $eta$ ⇒ Poisson/LSPE directly estimates it
 ]
-= Conclusion
+// = Conclusion
 
 
 == The end
