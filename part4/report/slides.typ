@@ -224,7 +224,7 @@
   $
 
   $
-    EE[r(x,u)] approx EE[c_"quad" (g(x,u))] approx EE[hat(r)(x,u)]
+    EE[hat(r)(x,u)] approx EE[c_"quad" (g(x,u))] approx EE[r(x,u)]
   $
   with $c_"quad"(g) = g - 1/2 g^2$
 
@@ -340,91 +340,6 @@
     - H, E: output matrix (here H selects position q_t)
     - y_min, y_max: output bounds (position in [0,1])
     - R_0: terminal cost (here R_0 = Q)
-  ]
-]
-
-== MPC: QP Reformulation <touying:hidden>
-#slide(composer: (1fr, 1fr))[
-  #title[Stacked QP formulation]
-
-  #blue[Stack variables:] 
-  \ $w = [z_0, dots, z_cal(N), v_0, dots, v_(cal(N)-1)]^top$
-
-  #v(0.2em)
-  #blue[Solve :]
-  $
-    min_w quad 1/2 w^top H_"obj" w
-  $
-  $
-    H_"obj" = mat(
-      Q, , , S, , ;
-      , dots.down, , , dots.down, ;
-      , , Q, , , S;
-      S^top, , , R, , ;
-      , dots.down, , , dots.down, ;
-      , , S^top, , , R
-    )
-  $
-
-][
-  #blue[Equality constraints] :
-  $
-    A_"eq" w = [x_t, 0, dots, 0]^top
-  $
-
-  #blue[bounds] :
-  $
-    y_min <= z_k <= y_max, quad u_min <= v_k <= u_max
-  $
-
-  #v(0.2em)
-
-  #speaker-note[
-    - Standard QP: efficient solvers available
-    - Sparse structure exploited
-    - Receding horizon: only apply $v_0^*$
-  ]
-]
-
-== MPC: Condensed Formulation <touying:hidden>
-#slide(composer: (3fr, 2fr))[
-
-
-  - express future states in terms of $x_0$ and controls $V$
-
-  #v(0.2em)
-  #blue[State prediction:]
-  $z_k = F^k x_0 + sum_(j=0)^(k-1) F^(k-1-j) G v_j
-  $
-
-  In matrix form:
-  #text(size: 0.75em)[
-  $
-    underbrace(mat(z_0; z_1; dots.v; z_cal(N)), Z) = underbrace(mat(I; F; dots.v; F^cal(N)), cal(F)) x_0 + underbrace(mat(0, 0, dots, 0; G, 0, dots, 0; dots.v, dots.down, , dots.v; F^(cal(N)-1)G, dots, F G, G), cal(G)) underbrace(mat(v_0; v_1; dots.v; v_(cal(N)-1)), V)
-  $
-  ] 
-
-][
-  #blue[Reduced QP:] optimize $V in RR^(n_u dot cal(N))$
-  $
-    min_V quad 1/2 V^top hat(H) V + (hat(F) x_0)^top V
-  $
-
-  #v(0.2em)
-  $
-    hat(H) &= cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G) \
-    hat(F) &= cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)
-  $
-  #muted[
-  where $tilde(Q), tilde(R), tilde(S)$ are block-diagonal]
-
-  #v(0.2em)
-  #blue[Constraints:] 
-  \ input bounds + state bounds via $cal(G)$
-
-  #speaker-note[
-    - States eliminated → QP size reduced from $(n_x + n_u) dot N$ to $n_u dot N$
-    - $hat(H)$ precomputed once; only $hat(F) x_0$ updated each step
   ]
 ]
 
@@ -927,6 +842,92 @@
       caption: [Clipped LQR]
     ),
   )
+]
+
+
+== MPC: QP Reformulation <touying:hidden>
+#slide(composer: (1fr, 1fr))[
+  #title[Stacked QP formulation]
+
+  #blue[Stack variables:] 
+  \ $w = [z_0, dots, z_cal(N), v_0, dots, v_(cal(N)-1)]^top$
+
+  #v(0.2em)
+  #blue[Solve :]
+  $
+    min_w quad 1/2 w^top H_"obj" w
+  $
+  $
+    H_"obj" = mat(
+      Q, , , S, , ;
+      , dots.down, , , dots.down, ;
+      , , Q, , , S;
+      S^top, , , R, , ;
+      , dots.down, , , dots.down, ;
+      , , S^top, , , R
+    )
+  $
+
+][
+  #blue[Equality constraints] :
+  $
+    A_"eq" w = [x_t, 0, dots, 0]^top
+  $
+
+  #blue[bounds] :
+  $
+    y_min <= z_k <= y_max, quad u_min <= v_k <= u_max
+  $
+
+  #v(0.2em)
+
+  #speaker-note[
+    - Standard QP: efficient solvers available
+    - Sparse structure exploited
+    - Receding horizon: only apply $v_0^*$
+  ]
+]
+
+== MPC: Condensed Formulation <touying:hidden>
+#slide(composer: (3fr, 2fr))[
+
+
+  - express future states in terms of $x_0$ and controls $V$
+
+  #v(0.2em)
+  #blue[State prediction:]
+  $z_k = F^k x_0 + sum_(j=0)^(k-1) F^(k-1-j) G v_j
+  $
+
+  In matrix form:
+  #text(size: 0.75em)[
+  $
+    underbrace(mat(z_0; z_1; dots.v; z_cal(N)), Z) = underbrace(mat(I; F; dots.v; F^cal(N)), cal(F)) x_0 + underbrace(mat(0, 0, dots, 0; G, 0, dots, 0; dots.v, dots.down, , dots.v; F^(cal(N)-1)G, dots, F G, G), cal(G)) underbrace(mat(v_0; v_1; dots.v; v_(cal(N)-1)), V)
+  $
+  ] 
+
+][
+  #blue[Reduced QP:] optimize $V in RR^(n_u dot cal(N))$
+  $
+    min_V quad 1/2 V^top hat(H) V + (hat(F) x_0)^top V
+  $
+
+  #v(0.2em)
+  $
+    hat(H) &= cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G) \
+    hat(F) &= cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)
+  $
+  #muted[
+  where $tilde(Q), tilde(R), tilde(S)$ are block-diagonal]
+
+  #v(0.2em)
+  #blue[Constraints:] 
+  \ input bounds + state bounds via $cal(G)$
+
+  #speaker-note[
+    - States eliminated → QP size reduced from $(n_x + n_u) dot N$ to $n_u dot N$
+    - $hat(H)$ precomputed once; only $hat(F) x_0$ updated each step
+  ]
 ]
 
 == Appendix: MPC trajectories (Q4.10–Q4.11)<touying:hidden>
