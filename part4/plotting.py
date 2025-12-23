@@ -288,14 +288,14 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, n_traj_mpc=1, T=
             policy = lambda x: np.clip(policy_list[i][0](x), -x[0], 1 - x[0])
         else:
             policy = policy_list[i][0]
-        _n_used = n_traj if "mpc" not in policy_list[i][1].lower() else n_traj_mpc
+        _n_used = n_traj_mpc if "mpc" in policy_list[i][1].lower() else n_traj
         xi_p_used = xi_p[:, :_n_used]
         x, u, _ = generate_trajectories(policy, x0=x0, T=T, N=_n_used, show_progress=True, xi_a=xi_a, xi_p=xi_p_used, desc=f"Evaluating {policy_list[i][1]:20s}")
         rewards_by_traj = np.nanmean(reward(x, u, xi_p_used, T), axis=0)
         # all_rewards[i] = rewards_by_traj
         all_rewards[i, :len(rewards_by_traj)] = rewards_by_traj
         # print(f"{policy_list[i][1]:30s}  Number of trajectories = {x.shape[2]}, trajectory length = {x.shape[0]}, reward shape = {reward(x, u, xi_p, T).shape}, avg reward shape = {np.nanmean(reward(x, u, xi_p, T), axis=0).T.shape}, number of non nan rewards = {np.sum(~np.isnan(all_rewards[i]))}")
-        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
+        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.nanstd(all_rewards[i]):.8f} n_used = {np.sum(~np.isnan(all_rewards[i]))}")
 
 
     print(f"\nPOLICY REWARD SUMMARY: (constrained={constrained})")

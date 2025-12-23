@@ -116,7 +116,7 @@
 
   - $g_t$: Net profit/loss from trading
   - #blue[Change in portfolio value at market price] 
-  - #red[Cash spent / received]
+  - #red[Cash buy / sell]
   ]
 ]
 
@@ -324,7 +324,7 @@
   #v(0.2em)
   #blue[Optimization problem at time $t$:]
   $
-    min_(z, v) quad sum_(k=0)^(cal(N)-1) underbrace(1/2 z_k^top Q z_k + z_k^top S v_k + 1/2 v_k^top R v_k, hat(r)(z_k, v_k))
+    min_(z, v) quad sum_(k=0)^(cal(N)-1) underbrace(1/2 z_k^top Q z_k + z_k^top S v_k + 1/2 v_k^top R v_k, -hat(r)(z_k, v_k))
   $
   #blue[Subject to:]
   $
@@ -474,7 +474,7 @@
 
 
   #green[Takeaways:]
-  - Constraints significantly reduce reward
+  // - Constraints significantly reduce reward
   - Clipped #pilqr ≈ MPC performance, but *much faster*
 
 
@@ -870,7 +870,7 @@
     // [CMA-ES quadratic], [True], [#green[✓]], [], [], [Marginal gain over linear],
     [#pilqr], [#red[LQR]], [#red[✗]], [0.009693], [0.019467], [$->$ #Klqr],
     // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
-    [MPC ($cal(N)=10$)], [#red[LQR] det], [#green[✓]], [0.011308], [---], [higher compute],
+    [MPC ($cal(N)=10$)], [#red[LQR] det], [#green[✓]], [0.010497], [---], [higher compute],
     [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [$->$ #Klqr], 
     [#pilspi], [True], [#red[✗]], [---], [---], [near-LQR on true model],
     [$Q_lambda$], [True det], [#green[✓]],[0.000011], [0.000019],  [],

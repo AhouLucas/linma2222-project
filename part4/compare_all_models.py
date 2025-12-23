@@ -42,7 +42,7 @@ def create_all_policies(mpc=True, only_mpc=False, only_unconstrained=False): # C
     GREEN = "\033[92m"
     print(GREEN + "LOADING POLICIES:" + "\033[0m")
 
-    if mpc or only_mpc and not only_unconstrained:
+    if (mpc or only_mpc) and (not only_unconstrained):
         from mpc_condensed import get_mpc_policy
         # policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
         # policies["MPC (N=30)"] = get_mpc_policy(N=30, model=model_matrices)
@@ -89,15 +89,16 @@ def create_all_policies(mpc=True, only_mpc=False, only_unconstrained=False): # C
 
 
     # LSPI (uses LSTD internally)
-    from q6_7 import get_lspi_policy
-    policies["LSPI (LSTD)"] = get_lspi_policy()
+    # from q6_7 import get_lspi_policy
+    # policies["LSPI (LSTD)"] = get_lspi_policy()
 
     # LSPE+PI
     from q85_86_87_88_89 import get_policies_lspe_pi
     pi_lspepi, pi_lspepi_ap, pi_lspepi_constr = get_policies_lspe_pi()
     policies["LSPE+PI (True Sys)"] = pi_lspepi
     policies["LSPE+PI (Approx Sys)"] = pi_lspepi_ap
-    policies["LSPE+PI (Constr.)"] = pi_lspepi_constr
+    if not only_unconstrained:
+        policies["LSPE+PI (Constr.)"] = pi_lspepi_constr
 
 
     return policies
