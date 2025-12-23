@@ -279,20 +279,23 @@ def plot_reward_distribution(policy_list, name="", n_traj=1000, n_traj_mpc=1, T=
     # all_rewards = np.zeros((len(policy_list), n_traj))
     # default to nan
     all_rewards = np.full((len(policy_list), n_traj), np.nan)
+
+    xi_a = np.zeros((T, n_traj)) if deterministic else np.random.normal(0, 1, size=(T, n_traj))
+    xi_p = np.zeros((T, n_traj)) if deterministic else np.random.normal(0, 1, size=(T, n_traj))
     for i in range(len(policy_list)):
-        xi_a = np.zeros((T, n_traj)) if deterministic else None
-        xi_p = np.zeros((T, n_traj)) if deterministic else None
         if constrained:
             # constraint q + u between 0 and 1
             policy = lambda x: np.clip(policy_list[i][0](x), -x[0], 1 - x[0])
         else:
             policy = policy_list[i][0]
-        x, u, xi_p = generate_trajectories(policy, x0=x0, T=T, N=n_traj if "mpc" not in policy_list[i][1].lower() else n_traj_mpc, show_progress=True, xi_a=xi_a, xi_p=xi_p, desc=f"Evaluating {policy_list[i][1]:20s}")
-        rewards_by_traj = np.nanmean(reward(x, u, xi_p, T), axis=0)
+        _n_used = n_traj if "mpc" not in policy_list[i][1].lower() else n_traj_mpc
+        xi_p_used = xi_p[:, :_n_used]
+        x, u, _ = generate_trajectories(policy, x0=x0, T=T, N=_n_used, show_progress=True, xi_a=xi_a, xi_p=xi_p_used, desc=f"Evaluating {policy_list[i][1]:20s}")
+        rewards_by_traj = np.nanmean(reward(x, u, xi_p_used, T), axis=0)
         # all_rewards[i] = rewards_by_traj
         all_rewards[i, :len(rewards_by_traj)] = rewards_by_traj
         # print(f"{policy_list[i][1]:30s}  Number of trajectories = {x.shape[2]}, trajectory length = {x.shape[0]}, reward shape = {reward(x, u, xi_p, T).shape}, avg reward shape = {np.nanmean(reward(x, u, xi_p, T), axis=0).T.shape}, number of non nan rewards = {np.sum(~np.isnan(all_rewards[i]))}")
-        # print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
+        print(f"{policy_list[i][1]:30s}  Average reward = {np.nanmean(all_rewards[i]):.8f} , Std = {np.std(all_rewards[i]):.8f}")
 
 
     print(f"\nPOLICY REWARD SUMMARY: (constrained={constrained})")

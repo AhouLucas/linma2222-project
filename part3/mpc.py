@@ -20,7 +20,7 @@ def precompute_mpc_matrices(model, N, y_min, y_max, u_min, u_max):
         Hobj[q(k), q(k)] += R
         Hobj[z(k), q(k)] += S
         Hobj[q(k), z(k)] += S.T
-    Hobj[z(N), z(N)] += R_0
+    # Hobj[z(N), z(N)] += R_0
     Hobj = 0.5 * (Hobj + Hobj.T)
 
     # --- Equality constraints: x(t+1) = F x(t) + G u(t) ---

@@ -142,7 +142,7 @@ N = 10
 
 
 
-u_min, u_max = [None], [None]  # scalar
+u_min, u_max = [-1], [1]  # scalar
 y_min = np.array([0, None, None], dtype=object)  # (ny x 1)
 y_max = np.array([1, None, None], dtype=object)   # (ny x 1)
 

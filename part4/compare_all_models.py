@@ -36,18 +36,23 @@ from lqr import compute_lqr_gain, model as model_matrices
 # POLICY DEFINITIONS
 # ============================================================================
 
-def create_all_policies(): # Create and return a dictionary of all policies to compare.
+def create_all_policies(mpc=True, only_mpc=False): # Create and return a dictionary of all policies to compare.
     policies = {}
     
     GREEN = "\033[92m"
     print(GREEN + "LOADING POLICIES:" + "\033[0m")
 
+    if mpc or only_mpc:
+        from mpc_condensed import get_mpc_policy
+        # policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
+        # policies["MPC (N=30)"] = get_mpc_policy(N=30, model=model_matrices)
+        # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
+        for i in range(1, 10):
+            policies[f"MPC (N={i})"] = get_mpc_policy(N=i, model=model_matrices)
+        policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
 
-    from mpc_condensed import get_mpc_policy
-    policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
-    policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
-
-
+    if only_mpc:
+        return policies
     policy_cl = lambda x: float(K_cl @ x)
     policy_cl_clipped = lambda x: np.clip(float(K_cl @ x), -x[0], 1 - x[0])
     policies["Initial CL"] = policy_cl
@@ -98,7 +103,6 @@ def compare_all_policies(policy_list, N=1000, T=1000, x0=(0, 0, 0), save_prefix=
     
     # Use the existing plot_reward_distribution function
     all_rewards = plot_reward_distribution(policy_list, name=save_prefix.rstrip("_"), n_traj=N, n_traj_mpc=n_traj_mpc, T=T, x0=x0, constrained=constrained)
-    
     # print results
     return all_rewards
 
@@ -111,39 +115,37 @@ def main():
     
     parser = argparse.ArgumentParser(description="Compare all Part 4 models")
     parser.add_argument("--quick", action="store_true", help="Quick mode: fewer trajectories", default=False)
+    parser.add_argument("--only-constrained", action="store_true", help="Only run constrained evaluation", default=False)
     parser.add_argument("--no-mpc", action="store_true", help="Skip MPC (slow)", default=False)
+    parser.add_argument("--only-mpc", action="store_true", help="Only run MPC", default=False)
     # parser.add_argument("--no-evolution", action="store_true", help="Skip K evolution plots", default=False)
     args = parser.parse_args()
     
     
     # Create all policies
-    policies = create_all_policies()
-
-
-    
-    # Remove MPC if requested (it's slow)
-    if args.no_mpc and "MPC (N=10)" in policies:
-        del policies["MPC (N=10)"]
-        print("Skipping MPC policy (--no-mpc flag)")
+    policies = create_all_policies(mpc=not args.no_mpc, only_mpc=args.only_mpc)
     
     
     # Set N and T based on quick mode
     N = 100 if args.quick else 5000
-    T = 200 if args.quick else 1000
+    T = 100 if args.quick else 200
     n_traj_mpc = 2 if args.quick else 20
     
     # Compare without constraints (standard evaluation)
     policy_list = [(policy, name) for name, policy in policies.items()]
 
-    print("=" * 60 + "STANDARD EVALUATION (no constraints enforced)" + "="*60)
-    results_standard = compare_all_policies(policy_list, N=N, T=T, save_prefix="all_models_", n_traj_mpc=n_traj_mpc)
     
     print("=" * 60 + "CONSTRAINED EVALUATION (q ∈ [0, 1] enforced)" + "="*60)
     results_constrained = compare_all_policies(policy_list, N=N, T=T, save_prefix="all_models_constrained_", constrained=True, n_traj_mpc=n_traj_mpc)
     
+    if not args.only_constrained:
+        print("=" * 60 + "STANDARD EVALUATION (no constraints enforced)" + "="*60)
+        results_standard = compare_all_policies(policy_list, N=N, T=T, save_prefix="all_models_", n_traj_mpc=n_traj_mpc)
+    else:
+        results_standard = [0] * len(policy_list)
     # list all
     # mean_rewards = [(name, np.nanmean(all_rewards[i]), np.nanstd(all_rewards[i]), len(all_rewards[i])) for i, (policy, name) in enumerate(policy_list)]
-    # mean_rewards.sort(key=lambda x: x[1], reverse=True)
+    # mean_rewards.sort(key=lambda x: x[1], reverse=True)≥
     # for name, mean_reward, std_reward, count in mean_rewards:
     #     print(f"  Policy: {name:20s} | Mean Reward: {mean_reward:10.6f} | Std Dev: {std_reward:10.6f} | Samples: {count}")
     

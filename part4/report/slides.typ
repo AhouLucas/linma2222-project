@@ -103,36 +103,32 @@
   $
 
   #v(0.2em)
-  // #muted[
-  //   - Mark-to-market term: change in value of holdings \
-  //   - Execution term: cash flow at average execution price
-  // ]
+  
+  #speaker-note[
+    - model : buy/sell shares to maximize profit
+  ]
 ]
 
-== Utility penalizes variance
-#slide(composer: (1fr, 1fr))[
+// == Utility penalizes variance
+// #slide(composer: (1fr, 1fr))[
 
-  #blue[Net reward:] $r_t = c(g_t)$ with
-  $
-    c(g) = max(g - 1/2 g^2, 1 - exp(-g))
-  $
+//   #blue[Net reward:] $r_t = c(g_t)$ with
+//   $
+//     c(g) = max(g - 1/2 g^2, 1 - exp(-g))
+//   $
 
-  #v(0.3em)
+//   #v(0.3em)
 
-  Increasing $"Var"(g_t)$ decreases $EE[c(g_t)]$.
+//   Increasing $"Var"(g_t)$ decreases $EE[c(g_t)]$.
   
-][
+// ][
 // #figure(
 //     image("figures/plot_q2.4.svg", width: 100%),
 //     caption: [$EE[c(g)]$ decreases as variance increases (empirical)]
 //   )
-  #speaker-note[
-    - risk aversion: big swings are penalized
-    - motivates more “stable” strategies
-  ]
-]
+// ]
 
-= Closed-loop analysis
+
 
 == Baseline linear policy #picl and #pipcl
 #slide[
@@ -142,45 +138,50 @@
     pi_"pcl"(x_t) &= max(-q_t, min(1-q_t, pi_"cl"(x_t)))
   $
 
-  #v(0.2em)
-  #green[Observation]
-  - states/actions centered near 0 → frequent buy/sell
-  - long-run average reward > 0 → “profitable” on average
+  #v(1em)
 
-  #v(0.2em)
-  #red[Issue]
-  - can make $q_t < 0$ (shorting) → infeasible in our setting
+  average rewards :
+  - $picl$ : 0.011451 
+  - $pipcl$ : 0.005796
 
-  // #figure(
-  //   image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
-  //   caption: [Example trajectory under #picl]
-  // )
+  #speaker-note[
+  - can make $q_t < 0$ 
+    
+    => infeasible
+  ]
+][
+  #figure(
+    image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
+    caption: [Example trajectory under #picl]
+  )
 ]
 
 #slide[
 
   #v(0.2em)
-  #muted[
-    Clipping creates saturation episodes: action hits bounds ⇒ “missed opportunities”.
-  ]
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/clipped_policy_ex_trajectory_states_actions.svg", width: 100%),
-    //   caption: [States & action (plateaux = saturation)]
-    // ),
-    // figure(
-    //   image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
-    //   caption: [Reward drops correlate with saturation]
-    // ),
+    figure(
+      image("figures/unclipped_policy_ex_trajectory_average_reward.svg", width: 100%),
+      caption: [Rewards of #picl]
+    ),
+    figure(
+      image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
+      caption: [Rewards of #pipcl]
+    ),
   )
+  #speaker-note[
+    no good use of this
+  ]
 ]
 
 == Better policy via CMA-ES
 #slide(composer: (1fr, 1fr))[
 
   #v(0.2em)
+  method made for noisy optimization.
+
   #blue[CMA-ES linear policy]
   $ pi_l(x)=op("clip")(p_3 [q, z^a, z^u]^top, [-q,1-q]) $
   #blue[CMA-ES quadratic policy]
@@ -188,15 +189,16 @@
 
   #v(0.3em)
 
-
+  #speaker-note[
   - quadratic only slightly better.
+  ]
 
 ][
 
-  // #figure(
-  //   image("figures/policy_comparison_histogram_first_three.svg", width: 100%),
-  //   caption: [Reward comparison: baseline vs CMA-ES policies]
-  // )
+  #figure(
+    image("figures/policy_comparison_histogram_first_three.svg", width: 100%),
+    caption: [Reward comparison: baseline vs CMA-ES policies]
+  )
 ]
 
 = Model-based control
@@ -209,48 +211,210 @@
   $x_(t+1) = F x_t + G u_t + D xi_t$
 
   #v(0.2em)
-  #blue[Quadratic reward approximation]
+  #blue[Reward : ]
+  minimise the expected cost:
   $
-    EE[c_"quad"(g_t) | x_t, u_t]
-    approx 1/2 x^top S x + x^top P u + 1/2 u^top R u
+    hat(r) (x,u):= 1/2 x^top S x + x^top P u + 1/2 u^top R u
+    \ max quad lim_ oo 1/T EE[ sum_(t=0)^(T-1) hat(r)(x_t,u_t)]
+    
+
   $
 
+  $
+    EE[r(x,u)] approx EE[c_"quad" (g(x,u))] approx EE[hat(r)(x,u)]
+  $
+  with $c_"quad"(g) = g - 1/2 g^2$
+
   #v(0.3em)
-  #muted[
+  #speaker-note[
     Design choice: keep only 2nd-order terms → tractable Riccati solution (benchmark controller).
   ]
 ][
+  #blue[Resulting matrices]
+  $
+    F = mat(1, 0, 0;
+          0, 1-omega^a, 0;
+          0, 0, 1-omega^u)
+    quad
+    \
+    G = mat(1;
+          0;
+          omega^u beta^u)
+  $
+
+  #speaker-note[
+    - linearize dynamics & quadratic reward
+    - obtain LQR model (F,G,Q,R,S)
+  ]
   
+]
+
+== LQR: Riccati equation & optimal gain
+#slide[
+  #title[LQR policy derivation]
+
+  #blue[Discrete Algebraic Riccati Equation (DARE)]
+  $
+    M^* = Q + F^top M^* F - (F^top M^* G + S)(R + G^top M^* G)^(-1)(G^top M^* F + S^top)
+  $
+
+  #v(0.3em)
+  #blue[Optimal gain]
+  $
+    K_"lqr" = -(R + G^top M^* G)^(-1)(G^top M^* F + S^top)approx
+    //  mat(1.112, -2.649, -2.528) 
+    // in bold
+    bold(mat(1.112, -2.649, -2.528))
+  $
+
+  #v(0.3em)
+  #blue[Theoretical average reward]
+  $
+    J^* = -1/2 tr(M^* D D^top) = #emph[0.01936]
+  $
+  #speaker-note[
+    - Solve DARE iteratively or via scipy.linalg.solve_discrete_are
+    - Closed-loop stability: eigenvalues of $(F + G K)$ inside unit circle
+  ]
 ]
 
 == LQR optimal policy
 #slide[
   #blue[LQR policy]
 
-  $ pi_"lqr"(x_t) = -K_"lqr" x_t quad quad $
-  with $K_"lqr" approx mat(1.112, -2.649, -2.528) $
+  $ pi_"lqr"(x_t) = -K_"lqr" x_t quad $
+
 
   #v(0.3em)
 
-  - much higher average reward, close to theoretical
+  - average reward: #emph[0.019467]
+  - average reward: #emph[0.009693] (constrained)
+  - theoretical  :  #emph[0.01936]
+
+  #speaker-note[
 
   #blue[Clipped LQR policy]
   - average reward decreases
+  ]
 ][
   #grid(
     rows: (1fr, 1fr),
-    // figure(
-    //   image("figures/lqr_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
-    //   // caption: [States & action]
-    // ),
-    // figure(
-    //   image("figures/lqr_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
-    //   // caption: [Average reward]
-    // ),
+    figure(
+      image("figures/lqr_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
+      // caption: [States & action]
+    ),
+    figure(
+      image("figures/lqr_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
+      // caption: [Average reward]
+    ),
   )
+
+
 ]
 
-== clipped LQR vs MPC
+== MPC: Formulation
+#slide[
+  #title[Model Predictive Control]
+
+  #blue[Variables:] $z_k in RR^(n_x)$ (predicted states), $v_k in RR^(n_u)$ (predicted controls)
+
+  #v(0.2em)
+  #blue[Optimization problem at time $t$:]
+  $
+    min_(z, v) quad sum_(k=0)^(cal(N)-1) underbrace(1/2 z_k^top Q z_k + z_k^top S v_k + 1/2 v_k^top R v_k, hat(r)(z_k, v_k))
+  $
+  #blue[Subject to:]
+  $
+    z_0 &= x_t \
+    z_(k+1) &= F z_k + G v_k, quad &&k = 0, dots, cal(N)-1 \
+    y_min &<= z_(k+1) <= y_max, quad &&k = 0, dots, cal(N) \
+    u_min &<= v_k <= u_max, quad &&k = 0, dots, cal(N)-1
+  $
+
+
+  #speaker-note[
+    - z, q: decision variables (predicted trajectory)
+    - H, E: output matrix (here H selects position q_t)
+    - y_min, y_max: output bounds (position in [0,1])
+    - R_0: terminal cost (here R_0 = Q)
+  ]
+]
+
+== MPC: QP Reformulation
+#slide(composer: (1fr, 1fr))[
+  #title[Stacked QP formulation]
+
+  #blue[Stack variables:] 
+  \ $w = [z_0, dots, z_cal(N), v_0, dots, v_(cal(N)-1)]^top$
+
+  #v(0.2em)
+  #blue[Solve :]
+  $
+    min_w quad 1/2 w^top H_"obj" w
+  $
+  $
+    H_"obj" = mat(
+      Q, , , S, , ;
+      , dots.down, , , dots.down, ;
+      , , Q, , , S;
+      S^top, , , R, , ;
+      , dots.down, , , dots.down, ;
+      , , S^top, , , R
+    )
+  $
+
+][
+  #blue[Equality constraints] :
+  $
+    A_"eq" w = [x_t, 0, dots, 0]^top
+  $
+
+  #blue[bounds] :
+  $
+    y_min <= z_k <= y_max, quad u_min <= v_k <= u_max
+  $
+
+  #v(0.2em)
+
+  #speaker-note[
+    - Standard QP: efficient solvers available
+    - Sparse structure exploited
+    - Receding horizon: only apply $v_0^*$
+  ]
+]
+
+== MPC: Condensed Formulation
+#slide[
+  #title[Condensed QP (eliminate states)]
+
+  #blue[Lifted dynamics:] substitute $z_k = F^k x_0 + sum_(j=0)^(k-1) F^(k-1-j) G v_j$
+
+  $
+    Z = cal(F) x_0 + cal(G) V
+  $
+  where $Z = [z_0, dots, z_cal(N)]^top$, $V = [v_0, dots, v_(cal(N)-1)]^top$
+
+  #v(0.2em)
+  #blue[Reduced QP:] only optimize over $V in RR^(n_u dot cal(N))$
+  $
+    min_V quad 1/2 V^top hat(H) V + hat(F)^top V
+  $
+  with:
+  $
+    hat(H) &= 2(cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G)) \
+    hat(F) &= 2(cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)) x_0
+  $
+
+  #blue[Constraints:] $quad l <= A_"lin" V <= u$ #h(0.5em) (input + output bounds)
+
+  #speaker-note[
+    - Eliminates state variables → smaller QP
+    - $tilde(Q), tilde(R), tilde(S)$: block-diagonal cost matrices
+    - Output constraints: $y_min <= H z_k + E v_k <= y_max$
+  ]
+]
+
+== MPC: Results
 #slide[
 
 
@@ -259,18 +423,24 @@
   - solve constrained finite-horizon optimization each step
   - chosen horizon: #emph[$cal(N)=10$] (good compute/reward compromise)
 
+  #speaker-note[
+    N=10 : good horizon
+    - greater N suffer from diverging prediction (no noise model)
+  ]
+  
+
 
 ][
   #grid(
     rows: (1fr, 1fr),
-    // figure(
-    //   image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-    //   caption: [Clipped LQR reward distribution]
-    // ),
-    // figure(
-    //   image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-    //   caption: [MPC reward distribution]
-    // ),
+    figure(
+      image("figures/mpc_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
+      caption: [Clipped LQR reward distribution]
+    ),
+    figure(
+      image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+      caption: [MPC reward distribution]
+    ),
   )
 ]
 
@@ -655,17 +825,17 @@
     [*Policy*], [*Model*], [*const*], [*Avg Reward*],[*Avg Reward (unc)*], [*Comments*],
     [#picl], [True], [#red[✗]], [0.005796], [0.011451], [baseline],
     // [#pipcl], [True], [#green[✓]], [], [], [saturation reduces reward],
-    [CMA-ES], [True], [#green[✓]], [0.009654], [0.009752], [better],
+    [CMA-ES], [True], [#green[✓]], [0.009654], [---], [better],
     // [CMA-ES quadratic], [True], [#green[✓]], [], [], [Marginal gain over linear],
     [#pilqr], [#red[LQR]], [#red[✗]], [0.009693], [0.019467], [],
     // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
     [MPC ($cal(N)=10$)], [#red[LQR]], [#green[✓]], [], [], [higher compute],
+    [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [], 
     [#pilspi], [True], [#red[✗]], [], [], [near-LQR on true model],
     [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [converges to #Klqr],
     [#pilspepi true], [True], [#red[✗]], [0.009763], [0.019452], [converges to #Klqr],
-    [#pilspepi true constr], [True], [#red[✗]], [0.009725], [0.009748], [],
+    [#pilspepi true constr], [True], [#green[✓]], [0.009725], [---], [],
     [$Q_lambda$], [], [],[0.000011], [0.000019],  [],
-    [E-PIA], [], [],[0.009651], [0.019584], [], 
   )
 
   #policy-table
@@ -735,9 +905,6 @@
   $g_t = 1/2 y_t^top H y_t$ with
   $y_t = (q_t, z_t^a, z_t^u, u_t, xi_t^a, xi_t^p)^top$.
 
-  #muted[
-    Full matrix $H$ is given in the report (Q2.3). Use this slide if asked “how did you get the quadratic structure?”.
-  ]
 ]
 
 == Appendix: LQR Riccati and theoretical reward (Q4.4)<touying:hidden>
@@ -757,7 +924,7 @@
   #blue[Theoretical average reward]
   $J^*_("reward") = -1/2 tr(M^* D D^top)$
 
-  #muted[
+  #speaker-note()[
     We compute $M^*$ by iterating finite-horizon Riccati until convergence.
   ]
 ]

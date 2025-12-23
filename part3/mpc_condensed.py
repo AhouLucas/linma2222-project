@@ -91,6 +91,6 @@ def _mpc_condensed(x0, N, precomputed_condensed=None):
     q = np.array([mpc_condensed(x0[:, i], N, precomputed_condensed) for i in range(x0.shape[1])]).T
     return q[0]
 
-def get_mpc_condensed_policy(N, model, y_min, y_max, u_min, u_max):
+def get_mpc_condensed_policy(N, model, y_min, y_max, u_min=[-1], u_max=[1]):
     precomputed_condensed = precompute_mpc_condensed_matrices(N, model, y_min, y_max, u_min, u_max)
     return lambda x: _mpc_condensed(x, N, precomputed_condensed)
