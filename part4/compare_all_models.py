@@ -47,9 +47,10 @@ def create_all_policies(mpc=True, only_mpc=False): # Create and return a diction
         # policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
         # policies["MPC (N=30)"] = get_mpc_policy(N=30, model=model_matrices)
         # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
-        for i in range(1, 10):
-            policies[f"MPC (N={i})"] = get_mpc_policy(N=i, model=model_matrices)
-        policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
+        # for i in range(1, 10):
+        #     policies[f"MPC (N={i})"] = get_mpc_policy(N=i, model=model_matrices)
+        # policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
+        policies["MPC (N=5)"] = get_mpc_policy(N=5, model=model_matrices)
 
     if only_mpc:
         return policies
@@ -129,7 +130,7 @@ def main():
     # Set N and T based on quick mode
     N = 100 if args.quick else 5000
     T = 100 if args.quick else 200
-    n_traj_mpc = 2 if args.quick else 20
+    n_traj_mpc = 2 if args.quick else 200
     
     # Compare without constraints (standard evaluation)
     policy_list = [(policy, name) for name, policy in policies.items()]

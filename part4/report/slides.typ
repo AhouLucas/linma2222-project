@@ -100,17 +100,23 @@
   $
 
   #v(0.3em)
-  #blue[Reward]
+  #blue[Reward: ] Profit / Loss $g_t$
+
+  #text(size: 0.75em)[
   $
-  g_t &:= 1000 dot (underbrace((q_(t+1)p_(t+1)-q_t p_t)) - underbrace((q_(t+1)-q_t) overline(p)_(t,t+1)))\
+  g_t &:= 1000 dot (blue(underbrace((q_(t+1)p_(t+1)-q_t p_t), "portfolio value change")) - red(underbrace((q_(t+1)-q_t) overline(p)_(t,t+1), "cash flow")))\
 
   r_t &:= c(g_t) = max(g_t - 1/2 g_t^2, 1 - exp(-g_t))
   $
+  ]
 
   #v(0.2em)
-  
   #speaker-note[
-    - model : buy/sell shares to maximize profit
+
+
+  - $g_t$: Net profit/loss from trading
+  - #blue[Change in portfolio value at market price] 
+  - #red[Cash spent / received]
   ]
 ]
 
@@ -461,6 +467,34 @@
   )
 ]
 
+== Part II Summary: Model-Based Control <touying:hidden>
+#slide[
+  #title[Comparison & Practical Recommendation]
+
+  #table(
+    columns: (1.5fr, 1fr, 1fr, 2fr),
+    align: (left, center, center, left),
+    [*Policy*], [*Avg Reward*], [*Feasible*], [*Key characteristic*],
+    [#pilqr], [$0.019467$], [#red[✗]], [optimal for LQR model],
+    [Clipped #pilqr], [$0.009693$], [#green[✓]], [still good performance],
+    [MPC ($cal(N)=10$)], [$0.011308$], [#green[✓]], [ costly],
+    [MPC ($cal(N)=5$)], [$0.011308$], [#green[✓]], [ costly],
+  )
+
+  #v(0.5em)
+  #green[Takeaways:]
+
+  - Constraints significantly reduce reward
+  - Clipped #pilqr ≈ MPC performance, but *much faster*
+
+
+  #speaker-note[
+    - In practice: 
+      - clipped LQR 
+        - fast and good performance
+  ]
+]
+
 = Policy Improvement (Part III)
 
 == Exact Policy Iteration Algorithm (E-PIA) (Q5)
@@ -544,7 +578,7 @@
   #v(0.2em)
 
   #figure(
-    image("../figures/q63_lspd_vs_qhat.png", width: 100%),
+    image("figures/q63_lspd_vs_qhat.png", width: 100%),
     caption: [True system: $Q^theta$ vs $hat(Q)_"MC"$]
   )
 ]
@@ -564,7 +598,7 @@
   #v(0.2em)
 
   #figure(
-  image("../figures/q64_lspd_vs_qhat.png", width: 100%),
+  image("figures/q64_lspd_vs_qhat.png", width: 100%),
   caption: [LQR model: $Q^theta$ vs $Q_"exact"$]
 )
 ]
@@ -591,8 +625,8 @@
   #figure(
     grid(
       rows: (auto, auto),
-      image("../figures/q64_policy_convergence.png", width: 80%),
-      image("../figures/q63_policy_rewards.png", width: 80%),
+      image("figures/q64_policy_convergence.png", width: 80%),
+      image("figures/q63_policy_rewards.png", width: 80%),
     )
   )
 ]
@@ -837,25 +871,33 @@
    
   // Table with policy, avg reward, comments
   #let policy-table = table(
-    columns: (1.5fr, 0.5fr, 0.5fr, 1fr, 1fr, 2fr),
+    columns: (1.5fr, 0.8fr, 0.5fr, 1fr, 1fr, 2fr),
     align: (center, center, center, center, center, left),
     [*Policy*], [*Model*], [*const*], [*Avg Reward*],[*Avg Reward (unc)*], [*Comments*],
-    [#picl], [True], [#red[✗]], [0.005796], [0.011451], [baseline],
+    [#picl], [True], [#red[✗]], [0.005796], [0.011451], [],
     // [#pipcl], [True], [#green[✓]], [], [], [saturation reduces reward],
-    [CMA-ES], [True], [#green[✓]], [0.009654], [---], [better],
+    [CMA-ES], [True], [#green[✓]], [0.009654], [---], [],
     // [CMA-ES quadratic], [True], [#green[✓]], [], [], [Marginal gain over linear],
-    [#pilqr], [#red[LQR]], [#red[✗]], [0.009693], [0.019467], [],
+    [#pilqr], [#red[LQR]], [#red[✗]], [0.009693], [0.019467], [$->$ #Klqr],
     // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
-    [MPC ($cal(N)=10$)], [#red[LQR]], [#green[✓]], [], [], [higher compute],
-    [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [], 
+    [MPC ($cal(N)=10$)], [#red[LQR] det], [#green[✓]], [0.011308], [---], [higher compute],
+    [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [$->$ #Klqr], 
     [#pilspi], [True], [#red[✗]], [], [], [near-LQR on true model],
-    [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [converges to #Klqr],
-    [#pilspepi true], [True], [#red[✗]], [0.009763], [0.019452], [converges to #Klqr],
+    [$Q_lambda$], [True det], [#green[✓]],[0.000011], [0.000019],  [],
+    [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [$->$ #Klqr],
+    [#pilspepi true], [True], [#red[✗]], [0.009763], [0.019452], [$->$ #Klqr],
     [#pilspepi true constr], [True], [#green[✓]], [0.009725], [---], [],
-    [$Q_lambda$], [], [],[0.000011], [0.000019],  [],
   )
 
   #policy-table
+  #speaker-note[
+
+
+    COMPUTED on True system :
+    - $T=200$
+    - $N=5000$ ($N=100$ for MPC)
+    - $x_0= mat(0,0,0)$
+  ]
 
 ]
 
@@ -865,12 +907,12 @@
   #grid(
     columns: (1fr, 1fr),
     figure(
-      image("figures/policy_comparison_bar_all_models.svg", width: 100%),
-      caption: [Average reward comparison (unconstrained)]
+      image("figures/policy_comparison_bar_all_models_constrained.svg", width: 100%),
+      caption: [Average reward comparison]
     ),
     figure(
-      image("figures/policy_comparison_bar_all_models_constrained.svg", width: 100%),
-      caption: [Average reward comparison (constrained)]
+      image("figures/policy_comparison_bar_all_models.svg", width: 100%),
+      caption: [Average reward comparison (unconstrained)]
     ),
   )
 
@@ -915,51 +957,20 @@
 
 
 
-== Appendix: $g_t$ as quadratic form (Q2.3)<touying:hidden>
-#slide[
-  #title[Quadratic form of $g_t$]
-
-  $g_t = 1/2 y_t^top H y_t$ with
-  $y_t = (q_t, z_t^a, z_t^u, u_t, xi_t^a, xi_t^p)^top$.
-
-]
-
-== Appendix: LQR Riccati and theoretical reward (Q4.4)<touying:hidden>
-#slide[
-  #title[LQR details]
-
-  #blue[Optimal policy]
-  $u_t = -K x_t$
-
-  #v(0.2em)
-  #blue[Riccati fixed point]
-  $
-  M^* = F^top M^* F - (F^top M^* G + N)(hat(R)+G^top M^* G)^(-1)(G^top M^* F + N^top) + Q
-  $
-
-  #v(0.2em)
-  #blue[Theoretical average reward]
-  $J^*_("reward") = -1/2 tr(M^* D D^top)$
-
-  #speaker-note()[
-    We compute $M^*$ by iterating finite-horizon Riccati until convergence.
-  ]
-]
-
 == Appendix: Baseline distributions (Q3.2 / Q3.4)<touying:hidden>
 #slide[
   #title[Baseline distributions]
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/unclipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-    //   caption: [Unclipped baseline]
-    // ),
-    // figure(
-    //   image("figures/clipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
-    //   caption: [Clipped baseline]
-    // ),
+    figure(
+      image("figures/unclipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
+      caption: [Unclipped baseline]
+    ),
+    figure(
+      image("figures/clipped_policy_final_reward_distribution_1000_trajectories.svg", width: 100%),
+      caption: [Clipped baseline]
+    ),
   )
 ]
 
@@ -969,14 +980,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/lqr_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-    //   caption: [Unclipped LQR]
-    // ),
-    // figure(
-    //   image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-    //   caption: [Clipped LQR]
-    // ),
+    figure(
+      image("figures/lqr_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+      caption: [Unclipped LQR]
+    ),
+    figure(
+      image("figures/lqr_clip_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+      caption: [Clipped LQR]
+    ),
   )
 ]
 
@@ -986,10 +997,10 @@
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
-    //   caption: [Example MPC states/actions]
-    // ),
+    figure(
+      image("figures/mpc_optimal_policy_ex_trajectory_states_actions.svg", width: 100%),
+      caption: [Example MPC states/actions]
+    ),
     // figure(
     //   image("figures/mpc_optimal_policy_cumulative_reward_100_trajectories.svg", width: 100%),
     //   caption: [MPC average reward over 100 sims]
@@ -1003,14 +1014,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/EPIA_convergence.svg", width: 100%),
-    //   caption: [Error norm to #Klqr]
-    // ),
-    // figure(
-    //   image("figures/EPIA_K_values.svg", width: 100%),
-    //   caption: [$K_k$ components]
-    // ),
+    figure(
+      image("figures/EPIA_convergence.svg", width: 100%),
+      caption: [Error norm to #Klqr]
+    ),
+    figure(
+      image("figures/EPIA_K_values.svg", width: 100%),
+      caption: [$K_k$ components]
+    ),
   )
 ]
 
@@ -1020,14 +1031,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/q63_lspd_vs_qhat.png", width: 100%),
-    //   caption: [True system: $Q^theta$ vs $\hat Q$]
-    // ),
-    // figure(
-    //   image("figures/q64_lspd_vs_qhat.png", width: 100%),
-    //   caption: [LQR model: $Q^theta$ vs exact/empirical $Q$]
-    // ),
+    figure(
+      image("figures/q63_lspd_vs_qhat.png", width: 100%),
+      caption: [True system: $Q^theta$ vs $hat(Q)$]
+    ),
+    figure(
+      image("figures/q64_lspd_vs_qhat.png", width: 100%),
+      caption: [LQR model: $Q^theta$ vs $hat(Q)$]
+    ),
   )
 ]
 
@@ -1037,14 +1048,14 @@
 
   #grid(
     columns: (1fr, 1fr),
-    // figure(
-    //   image("figures/q64_policy_convergence.png", width: 100%),
-    //   caption: [LSPI gain converges to #Klqr]
-    // ),
-    // figure(
-    //   image("figures/q67_policy_rewards.png", width: 100%),
-    //   caption: [Constrained PI can reduce reward]
-    // ),
+    figure(
+      image("figures/q64_policy_convergence.png", width: 100%),
+      caption: [LSPI gain converges to #Klqr]
+    ),
+    figure(
+      image("figures/q67_policy_rewards.png", width: 100%),
+      caption: [Constrained PI can reduce reward]
+    ),
   )
 ]
 
