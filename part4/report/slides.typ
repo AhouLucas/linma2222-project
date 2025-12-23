@@ -151,9 +151,9 @@
 
   #v(1em)
 
-  average rewards :
-  - $picl$ : 0.011451 
-  - $pipcl$ : 0.005796
+  Average rewards:
+  - $picl$ : #emph[0.011451]
+  - $pipcl$ : #emph[0.005796]
 
   #speaker-note[
   - can make $q_t < 0$ 
@@ -161,46 +161,38 @@
     => infeasible
   ]
 ][
-  #figure(
-    image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
-    caption: [Example trajectory under #picl]
-  )
-]
-
-#slide[
-
-  #v(0.2em)
-
   #grid(
-    columns: (1fr, 1fr),
+    rows: (1fr, 1fr),
     figure(
-      image("figures/unclipped_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Rewards of #picl]
+      image("figures/unclipped_policy_ex_trajectory_states_actions.svg", width: 95%),
     ),
-    figure(
-      image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Rewards of #pipcl]
-    ),
+      figure(
+      image("figures/clipped_policy_ex_trajectory_states_actions.svg", width: 95%),
+      caption: [#picl and #pipcl : Example trajectory]
+    )
   )
-  #speaker-note[
-    no good use of this
-  ]
 ]
+
 
 == Better policy via CMA-ES
 #slide(composer: (1fr, 1fr))[
 
   #v(0.2em)
-  method made for noisy optimization.
 
   #blue[CMA-ES linear policy]
-  $ pi_l(x)=op("clip")(p_3 [q, z^a, z^u]^top, [-q,1-q]) $
+  $ pi_l(x)=op("clip")(p_3^top [q, z^a, z^u], [-q,1-q]) $
   #blue[CMA-ES quadratic policy]
-  $ pi_q(x)=op("clip")(p_10 phi(x), [-q,1-q]) $
+  $ pi_q(x)=op("clip")(p_10^top phi(x), [-q,1-q]) $
 
+  where 
+  #text(size: 0.7em)[
+  $phi(x) = [1, q, z^a, z^u, q^2, (z^a)^2, (z^u)^2, q z^a, q z^u, z^a z^u]^top$
+  ]
   #v(0.3em)
 
   #speaker-note[
+  Method made for noisy optimization.
+
   - quadratic only slightly better.
   ]
 
@@ -208,7 +200,7 @@
 
   #figure(
     image("figures/policy_comparison_histogram_first_three.svg", width: 100%),
-    caption: [Reward comparison: baseline vs CMA-ES policies]
+    caption: [Reward comparison: baseline vs CMA-ES policie]
   )
 ]
 
@@ -222,11 +214,11 @@
   $x_(t+1) = F x_t + G u_t + D xi_t$
 
   #v(0.2em)
-  #blue[Reward : ]
-  minimise the expected cost:
+  #blue[Reward:]
+  Maximize the expected reward (minimize cost):
   $
-    hat(r) (x,u):= 1/2 x^top S x + x^top P u + 1/2 u^top R u
-    \ max quad lim_ oo 1/T EE[ sum_(t=0)^(T-1) hat(r)(x_t,u_t)]
+    hat(r) (x,u):= 1/2 x^top Q x + x^top S u + 1/2 u^top R u
+    \ max quad lim_(T -> oo) 1/T EE[ sum_(t=0)^(T-1) hat(r)(x_t,u_t)]
     
 
   $
@@ -299,8 +291,8 @@
   #v(0.3em)
 
   - average reward: #emph[0.019467]
+    - theoretical  :  #emph[0.01936]
   - average reward: #emph[0.009693] (constrained)
-  - theoretical  :  #emph[0.01936]
 
   #speaker-note[
 
@@ -398,7 +390,7 @@
 #slide(composer: (3fr, 2fr))[
 
 
-  - express all future states in terms of $x_0$ and controls $V$
+  - express future states in terms of $x_0$ and controls $V$
 
   #v(0.2em)
   #blue[State prediction:]
@@ -419,12 +411,12 @@
   $
 
   #v(0.2em)
-  #blue[Hessian & linear term:]
   $
     hat(H) &= cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G) \
     hat(F) &= cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)
   $
-  where $tilde(Q), tilde(R), tilde(S)$ are block-diagonal
+  #muted[
+  where $tilde(Q), tilde(R), tilde(S)$ are block-diagonal]
 
   #v(0.2em)
   #blue[Constraints:] 
@@ -436,13 +428,32 @@
   ]
 ]
 
-== MPC: Results <touying:hidden>
+// == MPC: Results <touying:hidden>
+// #slide[
+
+
+//   #v(0.2em)
+  
+
+
+// ][
+//   #grid(
+//     rows: (1fr, 1fr),
+//     figure(
+//       image("figures/mpc_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
+//       caption: [Clipped LQR reward distribution]
+//     ),
+//     figure(
+//       image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
+//       caption: [MPC reward distribution]
+//     ),
+//   )
+// ]
+
+== Part II Summary: Model-Based Control <touying:hidden>
 #slide[
 
-
-  #v(0.2em)
-  #blue[MPC]
-  - chosen horizon: #emph[$cal(N)=10$] 
+  #blue[chosen horizon : ] $emph(cal(N)=10)$
     - performance vs computation
     - greater N : diverging predictions
 
@@ -450,40 +461,19 @@
     N=10 : good horizon
     - greater N suffer from diverging prediction (no noise model)
   ]
-  
-
-
-][
-  #grid(
-    rows: (1fr, 1fr),
-    figure(
-      image("figures/mpc_optimal_policy_ex_trajectory_average_reward.svg", width: 100%),
-      caption: [Clipped LQR reward distribution]
-    ),
-    figure(
-      image("figures/mpc_optimal_policy_final_reward_distribution_100_trajectories.svg", width: 100%),
-      caption: [MPC reward distribution]
-    ),
-  )
-]
-
-== Part II Summary: Model-Based Control <touying:hidden>
-#slide[
-  #title[Comparison & Practical Recommendation]
-
   #table(
     columns: (1.5fr, 1fr, 1fr, 2fr),
     align: (left, center, center, left),
     [*Policy*], [*Avg Reward*], [*Feasible*], [*Key characteristic*],
     [#pilqr], [$0.019467$], [#red[✗]], [optimal for LQR model],
     [Clipped #pilqr], [$0.009693$], [#green[✓]], [still good performance],
-    [MPC ($cal(N)=10$)], [$0.011308$], [#green[✓]], [ costly],
-    [MPC ($cal(N)=5$)], [$0.011308$], [#green[✓]], [ costly],
+    [MPC ($cal(N)=30$)], [$0.0113082$], [#green[✓]], [2x slower than $cal(N)=10$],
+    [MPC ($cal(N)=10$)], [$0.0113081$], [#green[✓]], [ costly],
+    [MPC ($cal(N)=5$)], [$0.0113076$], [#green[✓]], [$approx$ time $cal(N)=10$],
   )
 
-  #v(0.5em)
-  #green[Takeaways:]
 
+  #green[Takeaways:]
   - Constraints significantly reduce reward
   - Clipped #pilqr ≈ MPC performance, but *much faster*
 
@@ -882,7 +872,7 @@
     // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
     [MPC ($cal(N)=10$)], [#red[LQR] det], [#green[✓]], [0.011308], [---], [higher compute],
     [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [$->$ #Klqr], 
-    [#pilspi], [True], [#red[✗]], [], [], [near-LQR on true model],
+    [#pilspi], [True], [#red[✗]], [---], [---], [near-LQR on true model],
     [$Q_lambda$], [True det], [#green[✓]],[0.000011], [0.000019],  [],
     [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [$->$ #Klqr],
     [#pilspepi true], [True], [#red[✗]], [0.009763], [0.019452], [$->$ #Klqr],
@@ -897,6 +887,13 @@
     - $T=200$
     - $N=5000$ ($N=100$ for MPC)
     - $x_0= mat(0,0,0)$
+
+    Comparison :
+    - mpc is better (but tested only at N=100) 
+    - $pilqr$, $Q_lambda$ on LQR model all methods converge to Klqr 
+    - method trained with quadratic psi tend to $approx$ LQR performance :
+      - models rewards small variance => near zero (near our LQR approximation with c_quad)
+
   ]
 
 ]
@@ -915,6 +912,9 @@
       caption: [Average reward comparison (unconstrained)]
     ),
   )
+  #muted[
+    MPC reward computed on $N=200$ samples due to high compute cost
+  ]
 
 ]
 
@@ -1074,4 +1074,26 @@
       caption: [Fair comparison: all constrained]
     ),
   )
+]
+
+
+
+#slide[
+
+  #v(0.2em)
+
+  #grid(
+    columns: (1fr, 1fr),
+    figure(
+      image("figures/unclipped_policy_ex_trajectory_average_reward.svg", width: 100%),
+      caption: [Rewards of #picl]
+    ),
+    figure(
+      image("figures/clipped_policy_ex_trajectory_average_reward.svg", width: 100%),
+      caption: [Rewards of #pipcl]
+    ),
+  )
+  #speaker-note[
+    no good use of this
+  ]
 ]

@@ -252,6 +252,24 @@ def plot_rewards():
     plt.savefig("part3/figures/q67_policy_rewards.png", dpi=300)
     plt.show()
 
+def get_lspi_policy(precomputed=True):
+    if precomputed:
+        K_final = np.array([1.76412969, -0.02441127, -0.01780621])
+    else: 
+        K_lspi = lspi()
+        K_final = K_lspi[:, -1]
+        print(f"  Learned LSPI policy K: {K_final}")
+    
+    def policy(x):
+        u_lin = -K_final @ x
+        # Apply constraints: 0 <= x[0] + u <= 1
+        lb = -x[0]
+        ub = 1 - x[0]
+        return np.clip(u_lin, lb, ub)
+    
+    return policy
+
+
 if __name__ == "__main__":
     # K_lspi = lspi()
     # print("Learned policy K_lspi:", K_lspi[:, -1])

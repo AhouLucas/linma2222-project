@@ -36,28 +36,31 @@ from lqr import compute_lqr_gain, model as model_matrices
 # POLICY DEFINITIONS
 # ============================================================================
 
-def create_all_policies(mpc=True, only_mpc=False): # Create and return a dictionary of all policies to compare.
+def create_all_policies(mpc=True, only_mpc=False, only_unconstrained=False): # Create and return a dictionary of all policies to compare.
     policies = {}
     
     GREEN = "\033[92m"
     print(GREEN + "LOADING POLICIES:" + "\033[0m")
 
-    if mpc or only_mpc:
+    if mpc or only_mpc and not only_unconstrained:
         from mpc_condensed import get_mpc_policy
         # policies["MPC (N=50)"] = get_mpc_policy(N=50, model=model_matrices)
         # policies["MPC (N=30)"] = get_mpc_policy(N=30, model=model_matrices)
         # policies["MPC (N=20)"] = get_mpc_policy(N=20, model=model_matrices)
         # for i in range(1, 10):
         #     policies[f"MPC (N={i})"] = get_mpc_policy(N=i, model=model_matrices)
-        # policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
-        policies["MPC (N=5)"] = get_mpc_policy(N=5, model=model_matrices)
+        policies["MPC (N=10)"] = get_mpc_policy(N=10, model=model_matrices)
+        # policies["MPC (N=5)"] = get_mpc_policy(N=2, model=model_matrices)
+        # policies["MPC (N=3)"] = get_mpc_policy(N=3, model=model_matrices)
+
 
     if only_mpc:
         return policies
     policy_cl = lambda x: float(K_cl @ x)
     policy_cl_clipped = lambda x: np.clip(float(K_cl @ x), -x[0], 1 - x[0])
     policies["Initial CL"] = policy_cl
-    policies["Clipped CL"] = policy_cl_clipped
+    if not only_unconstrained:
+        policies["Clipped CL"] = policy_cl_clipped
 
 
     # print(GREEN + " - Random Policy" + "\033[0m")
@@ -66,7 +69,8 @@ def create_all_policies(mpc=True, only_mpc=False): # Create and return a diction
 
     
     from best_policy import get_cma_policy, get_cma_quadratic_policy
-    policies["CMA-ES Linear"] = get_cma_policy()
+    if not only_unconstrained:
+        policies["CMA-ES Linear"] = get_cma_policy()
     # policies["CMA-ES Quadratic"] = get_cma_quadratic_policy()
 
     
@@ -84,7 +88,9 @@ def create_all_policies(mpc=True, only_mpc=False): # Create and return a diction
     policies["Q-λ (True Sys)"] = get_q_lambda_policy(use_precomputed=True)
 
 
-    # LSTD
+    # LSPI (uses LSTD internally)
+    from q6_7 import get_lspi_policy
+    policies["LSPI (LSTD)"] = get_lspi_policy()
 
     # LSPE+PI
     from q85_86_87_88_89 import get_policies_lspe_pi
@@ -119,12 +125,16 @@ def main():
     parser.add_argument("--only-constrained", action="store_true", help="Only run constrained evaluation", default=False)
     parser.add_argument("--no-mpc", action="store_true", help="Skip MPC (slow)", default=False)
     parser.add_argument("--only-mpc", action="store_true", help="Only run MPC", default=False)
+    parser.add_argument("--only-unconstrained", action="store_true", help="Only run unconstrained policies", default=False)
     # parser.add_argument("--no-evolution", action="store_true", help="Skip K evolution plots", default=False)
     args = parser.parse_args()
+    if args.only_mpc and args.only_unconstrained:
+        print("Error: --only-mpc and --only-unconstrained cannot be used together.")
+        return
     
     
     # Create all policies
-    policies = create_all_policies(mpc=not args.no_mpc, only_mpc=args.only_mpc)
+    policies = create_all_policies(mpc=not args.no_mpc, only_mpc=args.only_mpc, only_unconstrained=args.only_unconstrained)
     
     
     # Set N and T based on quick mode
@@ -164,3 +174,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+#   Policy: MPC (N=5)            | Mean Reward:   0.010500 | Mean Reward (unconstr):   0.000000 | [0.010500], [0.000000]
+#   Policy: LSPE+PI (True Sys)   | Mean Reward:   0.009706 | Mean Reward (unconstr):   0.000000 | [0.009706], [0.000000]
+#   Policy: LSPE+PI (Constr.)    | Mean Reward:   0.009673 | Mean Reward (unconstr):   0.000000 | [0.009673], [0.000000]
+#   Policy: LQR                  | Mean Reward:   0.009643 | Mean Reward (unconstr):   0.000000 | [0.009643], [0.000000]
+#   Policy: E-PIA                | Mean Reward:   0.009643 | Mean Reward (unconstr):   0.000000 | [0.009643], [0.000000]
+#   Policy: LSPE+PI (Approx Sys) | Mean Reward:   0.009617 | Mean Reward (unconstr):   0.000000 | [0.009617], [0.000000]
+#   Policy: CMA-ES Linear        | Mean Reward:   0.009578 | Mean Reward (unconstr):   0.000000 | [0.009578], [0.000000]
+#   Policy: Initial CL           | Mean Reward:   0.005685 | Mean Reward (unconstr):   0.000000 | [0.005685], [0.000000]
+#   Policy: Clipped CL           | Mean Reward:   0.005685 | Mean Reward (unconstr):   0.000000 | [0.005685], [0.000000]
+#   Policy: Q-λ (True Sys)       | Mean Reward:   0.000010 | Mean Reward (unconstr):   0.000000 | [0.000010], [0.000000]

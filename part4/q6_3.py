@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 import itertools
 from model import generate_trajectories
 
-N = 3000   # Increase N for better stability with high-degree polynomials
+N = 30000   # Increase N for better stability with high-degree polynomials
 N1 = 8  # no. of iterations for policy improvement
 
 # W_A = 0.1
@@ -60,25 +60,32 @@ def psi(x, u):
 d = psi(np.zeros(3), 0).shape[0]
 
 def lspd_implementation(K):
-    x0 = np.array([1, 1, 1])
+    # x0 = np.array([1, 1, 1])
+    x0 = np.array([0.1, 0.01, 0.01])
     var = .1
     policy = lambda x: np.random.normal(-K @ x, var**2)
 
     x = np.zeros((N+1, 3))
     u = np.zeros(N)
     x[0] = x0
-    for t in range(N):
-        u[t] = policy(x[t])
-        x[t+1] = A @ x[t] + B.flatten() * u[t]
+
 
     psi0 = np.zeros((d, N))
     psi1 = np.zeros((d, N))
     costs = np.zeros(N)
 
-    for k in range(N):
-        psi0[:, k] = psi(x[k], u[k])
-        psi1[:, k] = psi(x[k+1], -K @ x[k+1])
-        costs[k] = cost(x[k], u[k])
+    for t in range(N):
+        if np.linalg.norm(x[t]) > 1:
+            # print(f"Resetting state at time {t} : {x[t]}")
+            x[t] = np.clip(x[t], -0.5, 0.5)
+
+        u[t] = policy(x[t])
+        x[t+1] = A @ x[t] + B.flatten() * u[t]
+
+    # for k in range(N):
+        psi0[:, t] = psi(x[t], u[t])
+        psi1[:, t] = psi(x[t+1], -K @ x[t+1])
+        costs[t] = cost(x[t], u[t])
 
     Upsilon = psi0 - psi1
 
@@ -93,13 +100,16 @@ def lspd_implementation(K):
     R_N /= N
 
     # Use solve instead of inv for stability, and add small regularization
-    vecH = np.linalg.solve(R_N + 1e-5 * np.eye(d), phi_bar)
+    vecH = np.linalg.solve(R_N + 1e-3 * np.eye(d), phi_bar)
 
     return vecH
     
 
 from q85_86_87_88_89 import generate_dataset
-def lspi():
+def lspi(precomputed=True):
+    if precomputed:
+        K = np.array([[-0.0865145, 0.00021523, 0.01188014]]).T
+        return K
     K = np.zeros((3, N1+1))
     K[:, 0] = K_cl  # Initial policy
     for it in range(1, N1+1):
@@ -136,7 +146,7 @@ def lspi():
         XtX = X_sample.T @ X_sample
         XtU = X_sample.T @ (-U_sample)
         
-        K[:, it] = np.linalg.solve(XtX + 1e-6 * np.eye(3), XtU)
+        K[:, it] = np.linalg.solve(XtX + 1e-4 * np.eye(3), XtU)
 
     return K
 
@@ -245,11 +255,11 @@ def plot_rewards():
     plt.yscale("symlog")
     plt.title("Comparison of Cumulative Rewards")
     plt.grid(True, alpha=0.3)
-    plt.savefig("part3/figures/q63_policy_rewards.png", dpi=300)
+    plt.savefig("/figures/q63_policy_rewards.png", dpi=300)
     plt.show()
 
 if __name__ == "__main__":
-    K_lspi = lspi()
+    K_lspi = lspi(precomputed=False)
     print("Learned policy K_lspi:", K_lspi[:, -1])
     plot_lspd_vs_Q_hat()
     plot_rewards()
