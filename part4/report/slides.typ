@@ -647,19 +647,19 @@
 #slide(composer: (1fr, 1fr))[
   #title[Q-$lambda$ performance]
 
-  #blue[Convergence]
+  #blue[On LQR Model]
   - Converges to #Klqr for LQR settings
   - Higher $lambda$ → faster convergence (with tuned $alpha$)
 
   #v(0.3em)
-  #blue[Reward for deterministic system]
-  - $pi_(Q(lambda))$ less risky\ $==>$ less profit in some cases
+  #blue[On deterministic system]
+  - $Q(lambda)$ converges to\ $[-0.086, 2.1 times 10^4, 0.012]$
 ][
   #figure(
     grid(
       rows: (auto, auto),
-      image("figures/q_lambda_true_system_x0_1_average_reward.svg"),
-      image("figures/q_lambda_true_system_x0_2_average_reward.svg")
+      image("figures/q_lambda_true_system_x0_1_comparison.svg"),
+      image("figures/q_lambda_true_system_x0_2_comparison.svg")
     )
   )
 ]
