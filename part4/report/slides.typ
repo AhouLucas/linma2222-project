@@ -664,24 +664,6 @@
   )
 ]
 
-== Part III Summary <touying:hidden>
-#slide[
-
-  #table(
-    columns: (1.2fr, 1.2fr, 0.8fr, 2.5fr),
-    align: (left, center, center, left),
-    [*Method*], [*Model needed*], [*Online*], [*Key insight*],
-    [E-PIA], [Yes (full)], [No], [Exact convergence to #Klqr via Lyapunov + improvement],
-    [LSTD], [No], [No], [Basis: degree-4 for true, degree-2 for LQR],
-    [LSPI], [No], [No], [Iterate: LSTD evaluation + greedy improvement],
-    [Q-$lambda$], [No], [Yes], [$lambda$ controls bias-variance: higher $lambda$ → faster but needs smaller $alpha$],
-  )
-
-  #green[Takeaways]
-  - E-PIA: model-based benchmark, converges in ~6 iterations
-  - LSTD/LSPI: model-free, basis choice critical (degree-4 for true reward)
-  - Q-$lambda$: online learning, $pi_(Q_lambda)$ is more conservative (less risky, less profit)
-]
 
 = LSPE for Average-Reward (Part IV)
 
@@ -790,51 +772,7 @@
     )
 ]
 
-== Constrained Policy Improvement (Q8.9)
-#slide(composer: (1fr, 1fr))[
-  #title[Enforcing $q in [0,1]$]
 
-  #blue[Constrained improvement]
-  $ u^* = arg max_(u in [-q, 1-q]) Q^(theta)(x, u) $
-
-  #v(0.2em)
-  #red[Effect of constraints]
-  - Saturation episodes reduce reward
-  - Unconstrained policies look better... but are infeasible!
-
-  #v(0.2em)
-  #green[Fair comparison]
-  - Compare all policies under same constraint
-][
-  #figure(
-    grid(
-      rows: (auto, auto),
-      image("../../fig_in_git/policy_comparison_histogram_Q8_9.svg", width: 90%),
-      image("../../fig_in_git/policy_comparison_histogram_Q8_9_constrained.svg", width: 90%),
-    ),
-    caption: [Unconstrained (above) & Constrained (below)]
-  )
-]
-
-== Part IV Summary <touying:hidden>
-#slide[
-  #table(
-    columns: (1.5fr, 1.5fr, 2fr),
-    align: (left, center, left),
-    [*Question*], [*Setting*], [*Key result*],
-    [Q8.5], [True system], [$Q_"LSPE" approx hat(Q)_"MC"$ — validates Poisson formulation],
-    [Q8.6], [LQR model], [$Q_"LSPE" approx Q_"exact"$ — confirms implementation],
-    [Q8.7], [LSPE+PI, true], [Converges to near-optimal policy],
-    [Q8.8], [LSPE+PI, LQR], [Recovers #Klqr exactly],
-    [Q8.9], [Constrained PI], [Saturation reduces reward; fair comparison needed],
-  )
-
-  #v(0.3em)
-  #green[Takeaways]
-  - LSPE naturally handles average-reward setting via Poisson error
-  - Joint estimation of $theta_Q$ and $eta$ (average reward)
-  - Constraint handling requires care in both improvement and evaluation
-]
 
 = Model Comparison
 == Summary of methods and results
