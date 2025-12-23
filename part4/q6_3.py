@@ -258,6 +258,12 @@ def plot_rewards():
     plt.savefig("/figures/q63_policy_rewards.png", dpi=300)
     plt.show()
 
+
+def get_lspi_policy():
+    K = np.array([[-0.114, 0.878, -0.862]]).T
+    policy = lambda x: float(-K.T @ x)
+    return policy
+
 if __name__ == "__main__":
     K_lspi = lspi(precomputed=False)
     print("Learned policy K_lspi:", K_lspi[:, -1])

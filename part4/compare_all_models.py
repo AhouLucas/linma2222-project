@@ -90,6 +90,8 @@ def create_all_policies(mpc=True, only_mpc=False, only_unconstrained=False): # C
 
     # LSPI (uses LSTD internally)
     # from q6_7 import get_lspi_policy
+    from q6_3 import get_lspi_policy
+    policies["LSPI (LSTD)"] = get_lspi_policy()
     # policies["LSPI (LSTD)"] = get_lspi_policy()
 
     # LSPE+PI
