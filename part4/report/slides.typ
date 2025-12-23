@@ -384,33 +384,44 @@
 ]
 
 == MPC: Condensed Formulation
-#slide[
-  #title[Condensed QP (eliminate states)]
+#slide(composer: (3fr, 2fr))[
 
-  #blue[Lifted dynamics:] substitute $z_k = F^k x_0 + sum_(j=0)^(k-1) F^(k-1-j) G v_j$
 
-  $
-    Z = cal(F) x_0 + cal(G) V
-  $
-  where $Z = [z_0, dots, z_cal(N)]^top$, $V = [v_0, dots, v_(cal(N)-1)]^top$
+  - express all future states in terms of $x_0$ and controls $V$
 
   #v(0.2em)
-  #blue[Reduced QP:] only optimize over $V in RR^(n_u dot cal(N))$
-  $
-    min_V quad 1/2 V^top hat(H) V + hat(F)^top V
-  $
-  with:
-  $
-    hat(H) &= 2(cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G)) \
-    hat(F) &= 2(cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)) x_0
+  #blue[State prediction:]
+  $z_k = F^k x_0 + sum_(j=0)^(k-1) F^(k-1-j) G v_j
   $
 
-  #blue[Constraints:] $quad l <= A_"lin" V <= u$ #h(0.5em) (input + output bounds)
+  In matrix form:
+  #text(size: 0.75em)[
+  $
+    underbrace(mat(z_0; z_1; dots.v; z_cal(N)), Z) = underbrace(mat(I; F; dots.v; F^cal(N)), cal(F)) x_0 + underbrace(mat(0, 0, dots, 0; G, 0, dots, 0; dots.v, dots.down, , dots.v; F^(cal(N)-1)G, dots, F G, G), cal(G)) underbrace(mat(v_0; v_1; dots.v; v_(cal(N)-1)), V)
+  $
+  ] 
+
+][
+  #blue[Reduced QP:] optimize $V in RR^(n_u dot cal(N))$
+  $
+    min_V quad 1/2 V^top hat(H) V + (hat(F) x_0)^top V
+  $
+
+  #v(0.2em)
+  #blue[Hessian & linear term:]
+  $
+    hat(H) &= cal(G)^top tilde(Q) cal(G) + tilde(R) + cal(G)^top tilde(S) + tilde(S)^top cal(G) \
+    hat(F) &= cal(G)^top tilde(Q) cal(F) + tilde(S)^top cal(F)
+  $
+  where $tilde(Q), tilde(R), tilde(S)$ are block-diagonal
+
+  #v(0.2em)
+  #blue[Constraints:] 
+  \ input bounds + state bounds via $cal(G)$
 
   #speaker-note[
-    - Eliminates state variables → smaller QP
-    - $tilde(Q), tilde(R), tilde(S)$: block-diagonal cost matrices
-    - Output constraints: $y_min <= H z_k + E v_k <= y_max$
+    - States eliminated → QP size reduced from $(n_x + n_u) dot N$ to $n_u dot N$
+    - $hat(H)$ precomputed once; only $hat(F) x_0$ updated each step
   ]
 ]
 
@@ -420,8 +431,9 @@
 
   #v(0.2em)
   #blue[MPC]
-  - solve constrained finite-horizon optimization each step
-  - chosen horizon: #emph[$cal(N)=10$] (good compute/reward compromise)
+  - chosen horizon: #emph[$cal(N)=10$] 
+    - performance vs computation
+    - greater N : diverging predictions
 
   #speaker-note[
     N=10 : good horizon
