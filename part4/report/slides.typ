@@ -724,14 +724,14 @@
     [#pilqr], [#red[LQR]], [#red[✗]], [0.009693], [0.019467], [$->$ #Klqr],
     // [Clipped #pilqr], [LQR], [#green[✓]], [0.009616], [0.009914], [Feasibility cost but feasible],
     [MPC ($cal(N)=10$)], [#red[LQR] det], [#green[✓]], [0.010497], [---], [higher compute],
-    [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [$->$ #Klqr], 
-    [#pilspi], [True], [#red[✗]], [---], [---], [near-LQR on true model],
-    [$Q_lambda$], [True det], [#green[✓]],[0.000011], [0.000019],  [],
-    [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [$->$ #Klqr],
+    // [E-PIA], [#red[LQR]], [#red[✗]],[0.009651], [0.019584], [$->$ #Klqr], 
+    [#pilspi], [True], [#red[✗]], [---], [---], [$->$ #Klqr],
+    [$Q_lambda$], [True det], [#green[✓]],[0.000011], [0.000019],  [better on deterministic],
+    // [#pilspepi approx], [#red[LQR]], [#red[✗]], [0.009833], [0.019534], [$->$ #Klqr],
     [#pilspepi true], [True], [#red[✗]], [0.009763], [0.019452], [$->$ #Klqr],
     [#pilspepi true constr], [True], [#green[✓]], [0.009725], [---], [],
   )
-
+ $Q_lambda$, $pilspi$, $pilspepi$, E-PIA trained on LQR model gives $approx$ #pilqr
   #policy-table
   #speaker-note[
 
@@ -743,7 +743,7 @@
 
     Comparison :
     - mpc is better (but tested only at N=100) 
-    - $pilqr$, $Q_lambda$ on LQR model all methods converge to Klqr 
+    - $pilqr$, $Q_lambda$, $pilspi$ on LQR model all methods converge to Klqr 
     - method trained with quadratic psi tend to $approx$ LQR performance :
       - models rewards small variance => near zero (near our LQR approximation with c_quad)
 
