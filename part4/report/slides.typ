@@ -567,7 +567,7 @@
 
   #red[Key design choices]
   - *Degree-4 polynomial basis*: cost contains exponential term
-  - *No bias term*: undiscounted setting, $Q(0,0)=0$
+  - *No bias term*
   - *Regularization*: $(R_N + epsilon I)$ for numerical stability
   - *Large $N$*: $N = 3000$ samples for well-conditioned matrix
 
