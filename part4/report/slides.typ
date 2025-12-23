@@ -48,13 +48,18 @@
 #title-slide(logo: none)
 
 == Outline <touying:hidden>
-#components.adaptive-columns(outline(title: none, indent: 1em))
+
+#show outline.entry.where(level: 1): it => {
+  // strong(it)
+  emph(it)
+}
+#components.adaptive-columns(outline(title: none, indent: 1.5em))
 
 ////////////////////////////////////////////////////////////
 // Main deck (covers the whole project)
 ////////////////////////////////////////////////////////////
 
-= Problem & model
+= Modeling and Analysis (Part I)
 
 == Dynamics & reward
 #slide(composer: (1fr, 1fr))[
@@ -201,9 +206,9 @@
   )
 ]
 
-= Model-based control
+= LQR, LQG and MPC (Part II)
 
-== LQR approximation
+== LQR model approximation
 #slide[
   #title[LQR approximation]
 
@@ -249,7 +254,7 @@
   
 ]
 
-== LQR: Riccati equation & optimal gain
+== LQR: Riccati equation & optimal gain <touying:hidden>
 #slide[
   #title[LQR policy derivation]
 
@@ -312,7 +317,7 @@
 
 ]
 
-== MPC: Formulation
+== MPC
 #slide[
   #title[Model Predictive Control]
 
@@ -340,7 +345,7 @@
   ]
 ]
 
-== MPC: QP Reformulation
+== MPC: QP Reformulation <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[Stacked QP formulation]
 
@@ -383,7 +388,7 @@
   ]
 ]
 
-== MPC: Condensed Formulation
+== MPC: Condensed Formulation <touying:hidden>
 #slide(composer: (3fr, 2fr))[
 
 
@@ -425,7 +430,7 @@
   ]
 ]
 
-== MPC: Results
+== MPC: Results <touying:hidden>
 #slide[
 
 
@@ -472,7 +477,7 @@
 
 ]
 
-== E-PIA Results (Q5)
+== E-PIA Results (Q5) <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[E-PIA convergence]
 
@@ -522,7 +527,7 @@
   ]
 ] 
 
-== LSTD: Design Choices & Results
+== LSTD: Design Choices & Results <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[LSTD for true model]
 
@@ -545,7 +550,7 @@
 ]
 
 
-== LSTD: Design Choices & Results
+== LSTD: Design Choices & Results <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[LSTD for LQR model]
 
@@ -614,7 +619,7 @@
   )
 ]
 
-== Q-$lambda$ Results
+== Q-$lambda$ Results <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[Q-$lambda$ performance]
 
@@ -635,7 +640,7 @@
   )
 ]
 
-== Part III Summary
+== Part III Summary <touying:hidden>
 #slide[
 
   #table(
@@ -694,7 +699,7 @@
   - Quadratic basis $psi$: 14 features (no constant term)
 ]
 
-== LSPE Results: Policy Evaluation
+== LSPE Results: Policy Evaluation <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[Q8.5–Q8.6: Evaluating #picl]
 
@@ -738,7 +743,7 @@
   - Q8.8: Train on *LQR model*, evaluate on true system
 ]
 
-== LSPE+PI Results (Q8.7–Q8.8)
+== LSPE+PI Results (Q8.7–Q8.8) <touying:hidden>
 #slide(composer: (1fr, 1fr))[
   #title[Convergence and performance]
 
@@ -787,7 +792,7 @@
   )
 ]
 
-== Part IV Summary
+== Part IV Summary <touying:hidden>
 #slide[
   #table(
     columns: (1.5fr, 1.5fr, 2fr),
@@ -891,7 +896,7 @@
 // = Conclusion
 
 
-== The end
+== The end <touying:hidden>
 #slide[
   #title[Thank you for your attention !]
   
